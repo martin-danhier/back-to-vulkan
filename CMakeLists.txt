@@ -3,4 +3,6 @@ project(the_good_one)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(the_good_one main.cpp)
+# Register externals
+add_subdirectory(external)
+add_subdirectory(src)

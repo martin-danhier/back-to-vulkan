@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="CMakeRunConfigurationManager" shouldGenerate="true" shouldDeleteObsolete="true">
     <generated>
       <config projectName="the_good_one" targetName="the_good_one" />
+      <config projectName="the_good_one" targetName="imgui" />
+      <config projectName="the_good_one" targetName="Shaders" />
+      <config projectName="the_good_one" targetName="volk" />
       <config projectName="the_good_one" targetName="vkbootstrap" />
       <config projectName="the_good_one" targetName="tinyobjloader" />
     </generated>
@@ -14,14 +20,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3f53b05-54ab-475c-a5c8-fcdd40b597dc" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/external/stb_image/stb_image.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/external/tinyobjloader" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/external/vk-bootstrap" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/external/vma/vk_mem_alloc.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/external/volk" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitmodules" beforeDir="false" afterPath="$PROJECT_DIR$/.gitmodules" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/external/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.cpp" afterDir="false" />
@@ -37,6 +38,14 @@
   <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
   </component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="gspclfrn" />
@@ -54,7 +63,7 @@
     <property name="cf.first.check.clang-format" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/external/vma" />
     <property name="nodejs_package_manager_path" value="npm" />
-    <property name="settings.editor.selected.configurable" value="preferences.fileTypes" />
+    <property name="settings.editor.selected.configurable" value="CMakeSettings" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -66,6 +75,16 @@
     <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Shaders" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="Shaders" CONFIG_NAME="Debug">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="imgui" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="imgui" CONFIG_NAME="Debug">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
     <configuration name="the_good_one" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="the_good_one" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="the_good_one" RUN_TARGET_NAME="the_good_one">
@@ -83,14 +102,22 @@
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
+    <configuration name="volk" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="volk" CONFIG_NAME="Debug">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
     <list>
+      <item itemvalue="CMake Application.Shaders" />
+      <item itemvalue="CMake Application.imgui" />
       <item itemvalue="CMake Application.tinyobjloader" />
       <item itemvalue="CMake Application.vkbootstrap" />
+      <item itemvalue="CMake Application.volk" />
       <item itemvalue="CMake Application.the_good_one" />
     </list>
   </component>
@@ -102,7 +129,19 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1615766033208</updated>
-      <workItem from="1615766035016" duration="1301000" />
+      <workItem from="1615766035016" duration="2071000" />
+      <workItem from="1615810471826" duration="47000" />
+      <workItem from="1615810527886" duration="41000" />
+      <workItem from="1615810576642" duration="2092000" />
+      <workItem from="1615812699299" duration="183000" />
+      <workItem from="1615812891618" duration="464000" />
+      <workItem from="1615813364098" duration="88000" />
+      <workItem from="1615813473312" duration="405000" />
+      <workItem from="1615813886248" duration="158000" />
+      <workItem from="1615814052991" duration="63000" />
+      <workItem from="1615814124023" duration="299000" />
+      <workItem from="1615814431086" duration="503000" />
+      <workItem from="1615814946921" duration="1726000" />
     </task>
     <servers />
   </component>
@@ -119,5 +158,6 @@
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
 </project>

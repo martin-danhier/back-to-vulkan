@@ -1,6 +1,17 @@
-# === Vulkan ===
+# === SDL2 ===
 
-find_package(Vulkan REQUIRED)
+add_library(sdl2 INTERFACE)
+set(sdl2_DIR "SDL_PATH" CACHE FILEPATH "Path to SDL2")
+
+if (WIN32)
+    target_include_directories(sdl2 INTERFACE ${sdl2_DIR}/include ${sdl2_image_DIR}/include)
+    target_link_directories(sdl2 INTERFACE ${sdl2_DIR}/lib/x64 ${sdl2_image_DIR}/lib/x64)
+elseif (UNIX)
+    target_include_directories(sdl2 INTERFACE ${sdl2_DIR}/include/SDL2 ${sdl2_image_DIR}/include/SDL2)
+    target_link_directories(sdl2 INTERFACE ${sdl2_DIR}/lib ${sdl2_image_DIR}/lib)
+endif()
+
+target_link_libraries(sdl2 INTERFACE SDL2 SDL2main)
 
 # === glm ===
 
@@ -38,22 +49,33 @@ target_link_libraries(vkbootstrap PUBLIC Vulkan::Vulkan $<$<BOOL:UNIX>:${CMAKE_D
 add_library(vma INTERFACE)
 target_include_directories(vma INTERFACE vma)
 
+# === volk ===
+
+add_library(volk STATIC)
+target_sources(volk PRIVATE
+        volk/volk.c
+        volk/volk.h
+        )
+target_include_directories(volk PUBLIC volk)
+target_link_libraries(volk PUBLIC Vulkan::Vulkan $<$<BOOL:UNIX>:${CMAKE_DL_LIBS}>)
+
+
 # === imgui ===
 
-#add_library(imgui STATIC)
-#
-#target_include_directories(imgui PUBLIC imgui)
-#
-#target_sources(imgui PRIVATE
-#        imgui/imgui.h
-#        imgui/imgui.cpp
-#
-#        imgui/imgui_demo.cpp
-#        imgui/imgui_draw.cpp
-#        imgui/imgui_widgets.cpp
-#
-#        imgui/imgui_impl_vulkan.cpp
-#        imgui/imgui_impl_sdl.cpp
-#        )
-#
-#target_link_libraries(imgui PUBLIC Vulkan::Vulkan sdl2)
+add_library(imgui STATIC)
+
+target_include_directories(imgui PUBLIC imgui)
+
+target_sources(imgui PRIVATE
+        imgui/imgui.h
+        imgui/imgui.cpp
+
+        imgui/imgui_demo.cpp
+        imgui/imgui_draw.cpp
+        imgui/imgui_widgets.cpp
+
+        imgui/backends/imgui_impl_vulkan.cpp
+        imgui/backends/imgui_impl_sdl.cpp
+        )
+
+target_link_libraries(imgui PUBLIC Vulkan::Vulkan sdl2)

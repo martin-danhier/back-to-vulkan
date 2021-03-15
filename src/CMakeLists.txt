@@ -1,5 +1,5 @@
 # Add sources
-add_executable(the_good_one main.cpp)
+add_executable(the_good_one main.cpp engine/vk_engine.cpp engine/vk_engine.h engine/vk_types.h engine/vk_init.cpp engine/vk_init.h)
 
 # Add dependencies
 

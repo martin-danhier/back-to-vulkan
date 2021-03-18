@@ -39,7 +39,61 @@ void VulkanEngine::Init() {
     _isInitialized = true;
 }
 
+#ifndef NDEBUG
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+        void *pUserData) {
+
+    // Get the message
+    const std::string message(pCallbackData->pMessage);
+    bool isError = false;
+
+    // Create the formatted log
+    // Preallocate the needed space to increase performance
+    std::string formattedLog;
+    formattedLog.reserve(26 + message.size());
+
+    // Handle severity
+     if (messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
+        formattedLog += "[VERBOSE | ";
+    } else if (messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+        formattedLog += "[INFO    | ";
+    } else if (messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        formattedLog += "[WARNING | ";
+    } else if (messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+        formattedLog += "[ERROR   | ";
+        isError = true;
+    }
+
+     // Handle type
+    if (messageType <= VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
+        formattedLog += "GENERAL]      ";
+    } else if (messageType <= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
+        formattedLog += "VALIDATION]   ";
+    } else if (messageType <= VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
+        formattedLog += "PERFORMANCE]  ";
+    }
+
+    // Add the message
+    formattedLog += message;
+    formattedLog += "\n";
+
+    // Display the log in STDERR in case of error, display it in STDOUT otherwise
+    if (isError) {
+        std::cerr << formattedLog;
+    } else {
+        std::cout << formattedLog;
+    }
+
+    return VK_FALSE;
+};
+#endif
+
 void VulkanEngine::InitVulkan() {
+
+    // === Instance creation ===
 
     // Init dynamic loader
     vk::DynamicLoader loader;
@@ -55,13 +109,49 @@ void VulkanEngine::InitVulkan() {
             .apiVersion         = VK_API_VERSION_1_1,
     };
 
-    // Get the SDL required extensions
+    // Set required validation layers
+#ifdef NDEBUG
+    constexpr const char *requiredValidationLayers[] = nullptr;
+    constexpr int requiredValidationLayersCount = 0;
+#else
+    constexpr const char *requiredValidationLayers[] = {
+            "VK_LAYER_KHRONOS_validation"
+    };
+    constexpr int requiredValidationLayersCount = 1;
+
+    // Check validation layer support
+    const auto supportedLayers = vk::enumerateInstanceLayerProperties();
+
+    // TODO refactor to use the same code as extensions
+    for (const auto layer : requiredValidationLayers) {
+        bool found = false;
+
+        // Search for that layer in the supported layers
+        for (int i = 0; i < supportedLayers.size() && !found; i++) {
+            // Same name = found !
+            if (strcmp(layer, supportedLayers[i].layerName) == 0) {
+                found = true;
+            }
+        }
+
+        // If it wasn't found: error
+        if (!found) {
+            auto message = "[ERROR] The \"" + std::string(layer) + "\" validation layer is not supported !";
+            std::cerr << message << '\n';
+            throw std::runtime_error(message);
+        }
+    }
+#endif
 
     // Set required extensions
-    std::vector<const char *> extensionNames = {
+    std::vector<const char *> requiredExtensions = {
             VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME,
+#ifndef NDEBUG
+            // Add debug extensions
+            VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
     };
-    size_t additionalExtensionCount = extensionNames.size();
+    size_t additionalExtensionCount = requiredExtensions.size();
 
     // Get the number of SDL extensions
     uint32_t sdlExtensionCount = 0;
@@ -69,30 +159,70 @@ void VulkanEngine::InitVulkan() {
 
     // Resize the vector to be able to hold SDL extensions as well
     uint32_t totalExtensionCount = sdlExtensionCount + additionalExtensionCount;
-    extensionNames.resize(totalExtensionCount);
+    requiredExtensions.resize(totalExtensionCount);
     // Give to SDL a pointer to the extensions array + the index of the first
     // = we tell SDL to add its extensions at the end of the vector
     SDL_Vulkan_GetInstanceExtensions(_window, &sdlExtensionCount,
-                                     extensionNames.data() + additionalExtensionCount);
+                                     requiredExtensions.data() + additionalExtensionCount);
+
+    // Get supported extensions
+    const auto supportedExtensions = vk::enumerateInstanceExtensionProperties();
+
+    // Check if the required extensions are supported
+    for (const auto extension: requiredExtensions) {
+        bool found = false;
+
+        for (int i = 0; i < supportedExtensions.size() && !found; i++) {
+
+            // If same name : found !
+            if (strcmp(extension, supportedExtensions[i].extensionName) == 0) {
+                found = true;
+            }
+        }
+        // If it wasn't found: error
+        if (!found) {
+            auto message = "[ERROR] The \"" + std::string(extension) + "\" extension is not supported !";
+            std::cerr << message << '\n';
+            throw std::runtime_error(message);
+        }
+    }
 
     // Create create infos
-    const vk::InstanceCreateInfo createInfo{
+    const vk::InstanceCreateInfo instanceCreateInfo{
             .pApplicationInfo           = &applicationInfo,
             // Validation layers
-            .enabledLayerCount          = 0,
-            .ppEnabledLayerNames        = nullptr,
+            .enabledLayerCount          = requiredValidationLayersCount,
+            .ppEnabledLayerNames        = requiredValidationLayers,
             // Extensions
             .enabledExtensionCount      = totalExtensionCount,
-            .ppEnabledExtensionNames    = extensionNames.data(),
+            .ppEnabledExtensionNames    = requiredExtensions.data(),
     };
 
     // Create instance
-    _instance = vk::createInstance(createInfo);
+    _instance = vk::createInstance(instanceCreateInfo);
 
     // Initialize function pointers for instance
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
 
+    // === Debug messenger ===
 
+#ifndef NDEBUG
+    vk::DebugUtilsMessengerCreateInfoEXT messengerCreateInfo{
+            // Define allowed log severity
+            .messageSeverity    = vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+                                  vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                                  vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose,
+            // Define allowed message types
+            .messageType        = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                                  vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+                                  vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
+            // Define callback
+            .pfnUserCallback    = debugCallback,
+            .pUserData          = nullptr,
+    };
+    // Create debug messenger
+    _debugMessenger = _instance.createDebugUtilsMessengerEXT(messengerCreateInfo);
+#endif
 
 
     // Get the surface of the SDL window
@@ -153,7 +283,9 @@ void VulkanEngine::Cleanup() {
         // Cleanup Vulkan
 //        vkDestroyDevice(_device, nullptr);
 ////        vkDestroySurfaceKHR(_instance, _surface, nullptr);
-////        vkb::destroy_debug_utils_messenger(_instance, _debugMessenger);
+#ifndef NDEBUG
+        _instance.destroyDebugUtilsMessengerEXT(_debugMessenger);
+#endif
         _instance.destroy();
 //
 //        // Destroy SDL window

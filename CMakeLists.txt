@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.17)
 project(the_good_one)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_TOOLCHAIN_FILE $ENV{CMAKE_TOOLCHAIN_FILE})
+set(CMAKE_CXX_STANDARD 20)
 
 # Find Vulkan
 find_package(Vulkan REQUIRED)

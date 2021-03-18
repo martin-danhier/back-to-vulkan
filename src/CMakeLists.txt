@@ -1,10 +1,17 @@
 # Add sources
-add_executable(the_good_one main.cpp engine/vk_engine.cpp engine/vk_engine.h engine/vk_types.h engine/vk_init.cpp engine/vk_init.h)
+add_executable(the_good_one
+        main.cpp
+        engine/vk_engine.cpp
+        engine/vk_engine.h
+        engine/vk_types.h
+        engine/vk_init.cpp
+        engine/vk_init.h
+        )
 
 # Add dependencies
 
 # Link externals
-set_property(TARGET the_good_one PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:the_good_one>")
+#set_property(TARGET the_good_one PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:the_good_one>")
 target_include_directories(the_good_one PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(the_good_one

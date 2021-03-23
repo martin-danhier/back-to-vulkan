@@ -58,6 +58,10 @@ private:
   /** Framebuffers */
   std::vector<vk::Framebuffer> _framebuffers;
 
+  // == test ==
+  vk::PipelineLayout _trianglePipelineLayout;
+  vk::Pipeline _trianglePipeline;
+
   // == SYNCHRONIZATION ==
   vk::Semaphore _presentSemaphore;
   vk::Semaphore _renderSemaphore;
@@ -70,6 +74,8 @@ private:
   void InitDefaultRenderPass();
   void InitFramebuffers();
   void InitSyncStructures();
+  void InitPipelines();
+  vk::ShaderModule LoadShaderModule(const char* filePath);
 
 
 public:
@@ -92,4 +98,39 @@ public:
    * Run main loop
    */
   void Run();
+};
+
+class PipelineBuilder {
+private:
+  std::vector<vk::PipelineShaderStageCreateInfo> _shaderStages;
+  vk::PipelineVertexInputStateCreateInfo _vertexInputInfo;
+  vk::PipelineInputAssemblyStateCreateInfo _inputAssembly;
+  vk::Viewport _viewport;
+  vk::Rect2D _scissor;
+  vk::PipelineRasterizationStateCreateInfo _rasterizer;
+  vk::PipelineColorBlendAttachmentState _colorBlendAttachment;
+  vk::PipelineMultisampleStateCreateInfo _multisampling;
+  vk::PipelineLayout _pipelineLayout;
+  // Booleans to store whether default should be applied or not
+  bool _rasterizerInited = false;
+  bool _inputAssemblyInited = false;
+  bool _vertexInputInited = false;
+#ifndef NDEBUG
+  bool _pipelineLayoutInited = false;
+  bool _scissorsInited = false;
+  bool _viewportInited = false;
+#endif
+
+public:
+  PipelineBuilder AddShaderStage(vk::ShaderStageFlagBits stage, vk::ShaderModule shaderModule);
+  PipelineBuilder WithVertexInput();
+  PipelineBuilder WithAssemblyTopology(vk::PrimitiveTopology topology);
+  PipelineBuilder WithPolygonMode(vk::PolygonMode polygonMode);
+  PipelineBuilder WithPipelineLayout(vk::PipelineLayout pipelineLayout);
+  PipelineBuilder WithScissors(int32_t xOffset, int32_t yOffset, vk::Extent2D extent);
+  PipelineBuilder WithScissors(vk::Rect2D scissors);
+  PipelineBuilder WithViewport(float_t x, float_t y, float_t width, float_t height, float_t minDepth, float_t maxDepth);
+  PipelineBuilder WithViewport(vk::Viewport viewport);
+  PipelineBuilder GetDefaultsForExtent(vk::Extent2D windowExtent);
+  vk::Pipeline Build(vk::Device device, vk::RenderPass pass);
 };

@@ -7,6 +7,7 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
+#include <fstream>
 #include <iostream>
 #include <string>
 
@@ -42,6 +43,9 @@ void VulkanEngine::Init() {
 
   // Initialize synchronisation structures
   InitSyncStructures();
+
+  // Initialize pipelines
+  InitPipelines();
 
   // Set the _isInitialized property to true if everything went fine
   _isInitialized = true;
@@ -255,6 +259,55 @@ void VulkanEngine::InitSyncStructures() {
   _renderSemaphore = _device.createSemaphore({});
 }
 
+void VulkanEngine::InitPipelines() {
+
+  // Load shaders
+  auto triangleFragShader = LoadShaderModule("../shaders/triangle.frag.spv");
+  auto triangleVertShader = LoadShaderModule("../shaders/triangle.vert.spv");
+
+  // Create the trianglePipeline layout
+  auto pipelineLayoutCreateInfo = vkinit::PipelineLayoutCreateInfo();
+  _trianglePipelineLayout =
+      _device.createPipelineLayout(pipelineLayoutCreateInfo);
+
+  // Create the trianglePipeline
+  _trianglePipeline =
+      PipelineBuilder()
+          .WithPipelineLayout(_trianglePipelineLayout)
+          // Register shaders
+          .AddShaderStage(vk::ShaderStageFlagBits::eVertex, triangleVertShader)
+          .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
+                          triangleFragShader)
+          .GetDefaultsForExtent(_windowExtent)
+          .Build(_device, _renderPass);
+}
+
+vk::ShaderModule VulkanEngine::LoadShaderModule(const char *filePath) {
+  // Load the binary file with the cursor at the end
+  std::ifstream file(filePath, std::ios::ate | std::ios::binary);
+
+  if (!file.is_open()) {
+    throw std::runtime_error("Couldn't load shader " + std::string(filePath));
+  }
+  // Since the cursor is at the end, tellg gives the size of the file
+  size_t fileSize = file.tellg();
+  // Create a vector long enough to hold the content
+  std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+  // Cursor at the beginning
+  file.seekg(0);
+  // Load the file into the buffer
+  file.read((char *)buffer.data(), fileSize);
+  // Close the file
+  file.close();
+
+  // Create a shader module
+  vk::ShaderModuleCreateInfo shaderCreateInfo{
+      .codeSize = buffer.size() * sizeof(uint32_t),
+      .pCode = buffer.data(),
+  };
+  return _device.createShaderModule(shaderCreateInfo);
+}
+
 void VulkanEngine::Cleanup() {
   if (_isInitialized) {
 
@@ -303,7 +356,8 @@ void VulkanEngine::Draw() {
 
   // Request image index from swapchain
   uint32_t swapchainImageIndex;
-  auto nextImageResult = _device.acquireNextImageKHR(_swapchain, 1000000000,_presentSemaphore);
+  auto nextImageResult =
+      _device.acquireNextImageKHR(_swapchain, 1000000000, _presentSemaphore);
   switch (nextImageResult.result) {
     // Success, keep it
   case vk::Result::eSuccess:
@@ -333,7 +387,7 @@ void VulkanEngine::Draw() {
   // Define a clear color from frame number
   float flash = abs(sin(static_cast<float_t>(_frameNumber) / 120.f));
   float flash2 = abs(sin(static_cast<float_t>(_frameNumber) / 180.f));
-  vk::ClearValue clearValue(vkinit::GetColor(1-flash, flash2, flash));
+  vk::ClearValue clearValue(vkinit::GetColor(1 - flash, flash2, flash));
 
   // Start the main renderpass
   vk::RenderPassBeginInfo rpBeginInfo{
@@ -349,15 +403,20 @@ void VulkanEngine::Draw() {
   };
   _mainCommandBuffer.beginRenderPass(rpBeginInfo, vk::SubpassContents::eInline);
 
+  _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                  _trianglePipeline);
+  _mainCommandBuffer.draw(3, 1, 0, 0);
+
   // End the renderpass to finish rendering commands
   _mainCommandBuffer.endRenderPass();
   // End the command buffer to finish it and prepare it to be submitted
   _mainCommandBuffer.end();
 
-  vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+  vk::PipelineStageFlags waitStage =
+      vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
   // Submit the buffer to the queue
-  vk::SubmitInfo submitInfo {
+  vk::SubmitInfo submitInfo{
       // Wait until the image to render to is ready
       .waitSemaphoreCount = 1,
       .pWaitSemaphores = &_presentSemaphore,
@@ -373,7 +432,7 @@ void VulkanEngine::Draw() {
   _graphicsQueue.submit(submitInfo, _renderFence);
 
   // Present the image on the screen
-  vk::PresentInfoKHR presentInfo {
+  vk::PresentInfoKHR presentInfo{
       // Wait until the rendering is complete
       .waitSemaphoreCount = 1,
       .pWaitSemaphores = &_renderSemaphore,
@@ -387,7 +446,6 @@ void VulkanEngine::Draw() {
 
   // Increase the number of frames drawn
   _frameNumber++;
-
 }
 
 void VulkanEngine::Run() {
@@ -413,4 +471,216 @@ void VulkanEngine::Run() {
     // Run the rendering code
     Draw();
   }
+}
+
+// ===== PIPELINE BUILDER =====
+
+vk::Pipeline PipelineBuilder::Build(vk::Device device, vk::RenderPass pass) {
+  // Set pipeline blend
+  _colorBlendAttachment = vk::PipelineColorBlendAttachmentState{
+      .blendEnable = false,
+      .colorWriteMask =
+          vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+          vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+  };
+
+  // Set pipeline layout to default
+  _multisampling = vk::PipelineMultisampleStateCreateInfo{
+      .rasterizationSamples = vk::SampleCountFlagBits::e1,
+      .sampleShadingEnable = false,
+      .minSampleShading = 1.0f,
+      .pSampleMask = nullptr,
+      .alphaToCoverageEnable = false,
+      .alphaToOneEnable = false,
+  };
+
+  // Apply defaults if needed
+  if (!_rasterizerInited)
+    WithPolygonMode(vk::PolygonMode::eFill);
+  if (!_inputAssemblyInited)
+    WithAssemblyTopology(vk::PrimitiveTopology::eTriangleList);
+  if (!_vertexInputInited)
+    WithVertexInput();
+
+  // Create viewport state from stored viewport and scissors
+  vk::PipelineViewportStateCreateInfo viewportState{
+      .viewportCount = 1,
+      .pViewports = &_viewport,
+      .scissorCount = 1,
+      .pScissors = &_scissor,
+  };
+  // Create color blending state
+  vk::PipelineColorBlendStateCreateInfo colorBlending{
+      .logicOpEnable = false,
+      .logicOp = vk::LogicOp::eCopy,
+      .attachmentCount = 1,
+      .pAttachments = &_colorBlendAttachment,
+  };
+
+#ifndef NDEBUG
+  if (!_pipelineLayoutInited) {
+    throw std::runtime_error(
+        "Pipeline layout must be given to the pipeline builder.");
+  }
+  if (!_viewportInited) {
+    throw std::runtime_error("Viewport must be given to the pipeline builder.");
+  }
+  if (!_scissorsInited) {
+    throw std::runtime_error("Scissors must be given to the pipeline builder.");
+  }
+#endif
+
+  // Create the pipeline
+  vk::GraphicsPipelineCreateInfo pipelineCreateInfo{
+      .stageCount = static_cast<uint32_t>(_shaderStages.size()),
+      .pStages = _shaderStages.data(),
+      .pVertexInputState = &_vertexInputInfo,
+      .pInputAssemblyState = &_inputAssembly,
+      .pViewportState = &viewportState,
+      .pRasterizationState = &_rasterizer,
+      .pMultisampleState = &_multisampling,
+      .pColorBlendState = &colorBlending,
+      .layout = _pipelineLayout,
+      .renderPass = pass,
+      .subpass = 0,
+      .basePipelineHandle = nullptr,
+  };
+  auto result = device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
+  // Handle result
+  switch (result.result) {
+  case vk::Result::eSuccess:
+    return result.value;
+  // Default returns an exception
+  default:
+    throw std::runtime_error("Failed to create Pipeline");
+  }
+}
+
+PipelineBuilder PipelineBuilder::AddShaderStage(vk::ShaderStageFlagBits stage,
+                                                vk::ShaderModule shaderModule) {
+
+  // Add a new shader stage to the vector
+  _shaderStages.push_back(vk::PipelineShaderStageCreateInfo{
+      .stage = stage,
+      .module = shaderModule,
+      // Entry function of the shader, we use main conventionally
+      .pName = "main",
+  });
+
+  // Return this so it is easier to chain functions
+  return *this;
+}
+PipelineBuilder PipelineBuilder::WithVertexInput() {
+
+  // Empty for now
+  _vertexInputInfo = vk::PipelineVertexInputStateCreateInfo{
+      .vertexBindingDescriptionCount = 0,
+      .vertexAttributeDescriptionCount = 0,
+  };
+  _vertexInputInited = true;
+
+  return *this;
+}
+PipelineBuilder
+PipelineBuilder::WithAssemblyTopology(vk::PrimitiveTopology topology) {
+  _inputAssembly = vk::PipelineInputAssemblyStateCreateInfo{
+      .topology = topology,
+      .primitiveRestartEnable = false,
+  };
+  _inputAssemblyInited = true;
+
+  return *this;
+}
+PipelineBuilder PipelineBuilder::WithPolygonMode(vk::PolygonMode polygonMode) {
+  _rasterizer = vk::PipelineRasterizationStateCreateInfo{
+      .depthClampEnable = false,
+      // Keep the primitive in the rasterization stage
+      .rasterizerDiscardEnable = false,
+      .polygonMode = polygonMode,
+      // No backface culling
+      .cullMode = vk::CullModeFlagBits::eNone,
+      .frontFace = vk::FrontFace::eCounterClockwise,
+      // No depth bias
+      .depthBiasEnable = false,
+      .depthBiasConstantFactor = 0.0f,
+      .depthBiasClamp = 0.0f,
+      .depthBiasSlopeFactor = 0.0f,
+      // Width of the line
+      .lineWidth = 1.0f,
+  };
+  _rasterizerInited = true;
+
+  return *this;
+}
+PipelineBuilder
+PipelineBuilder::WithPipelineLayout(vk::PipelineLayout pipelineLayout) {
+  _pipelineLayout = pipelineLayout;
+#ifndef NDEBUG
+  _pipelineLayoutInited = true;
+#endif
+
+  return *this;
+}
+
+// Scissors
+
+PipelineBuilder PipelineBuilder::WithScissors(int32_t xOffset, int32_t yOffset,
+                                              vk::Extent2D extent) {
+  _scissor = vk::Rect2D{
+      .offset{
+          .x = xOffset,
+          .y = yOffset,
+      },
+      .extent = extent,
+  };
+#ifndef NDEBUG
+  _scissorsInited = true;
+#endif
+  return *this;
+}
+
+PipelineBuilder PipelineBuilder::WithScissors(vk::Rect2D scissors) {
+  _scissor = scissors;
+#ifndef NDEBUG
+  _scissorsInited = true;
+#endif
+  return *this;
+}
+
+// Viewport
+
+PipelineBuilder PipelineBuilder::WithViewport(float_t x, float_t y,
+                                              float_t width, float_t height,
+                                              float_t minDepth,
+                                              float_t maxDepth) {
+
+  _viewport = vk::Viewport{
+      .x = x,
+      .y = y,
+      .width = width,
+      .height = height,
+      .minDepth = minDepth,
+      .maxDepth = maxDepth,
+  };
+#ifndef NDEBUG
+  _viewportInited = true;
+#endif
+  return *this;
+}
+
+PipelineBuilder PipelineBuilder::WithViewport(vk::Viewport viewport) {
+  _viewport = viewport;
+#ifndef NDEBUG
+  _viewportInited = true;
+#endif
+  return *this;
+}
+// Defaults
+PipelineBuilder
+PipelineBuilder::GetDefaultsForExtent(vk::Extent2D windowExtent) {
+  // Setup a viewport that takes the whole screen
+  WithViewport(0.0f, 0.0f, windowExtent.width, windowExtent.height, 0.0f, 1.0f);
+  WithScissors(0, 0, windowExtent);
+
+  return *this;
 }

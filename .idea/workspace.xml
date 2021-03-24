@@ -21,6 +21,9 @@
   <component name="ChangeListManager">
     <list default="true" id="d3f53b05-54ab-475c-a5c8-fcdd40b597dc" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/external/tinyobjloader/tiny_obj_loader.h" beforeDir="false" afterPath="$PROJECT_DIR$/external/tinyobjloader/tiny_obj_loader.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,7 +71,7 @@
     <property name="last_opened_file_path" value="$PROJECT_DIR$/assets" />
     <property name="nodejs_package_manager_path" value="npm" />
     <property name="restartRequiresConfirmation" value="false" />
-    <property name="settings.editor.selected.configurable" value="preferences.pathVariables" />
+    <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors.GLSL" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -78,7 +81,17 @@
     </key>
   </component>
   <component name="RunManager" selected="CMake Application.the_good_one">
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Shaders" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="Shaders" CONFIG_NAME="Debug-Visual Studio">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -106,11 +119,6 @@
     <configuration name="volk" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="volk" CONFIG_NAME="Debug-Visual Studio">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
     <list>
@@ -165,7 +173,8 @@
       <workItem from="1616422999752" duration="20759000" />
       <workItem from="1616488760084" duration="10783000" />
       <workItem from="1616510051096" duration="1855000" />
-      <workItem from="1616589807448" duration="1352000" />
+      <workItem from="1616589807448" duration="2348000" />
+      <workItem from="1616604567514" duration="4053000" />
     </task>
     <servers />
   </component>

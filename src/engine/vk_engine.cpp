@@ -133,6 +133,9 @@ void VulkanEngine::InitSwapchain() {
   _swapchain = vk::SwapchainKHR(vkbSwapchain.swapchain);
   _swapchainImages = _device.getSwapchainImagesKHR(_swapchain);
   _swapchainImageFormat = vk::Format(vkbSwapchain.image_format);
+  // Register deletion
+  _mainDeletionQueue.PushFunction(
+      [=]() { _device.destroySwapchainKHR(_swapchain); });
 
   //   Get image views
   _swapchainImageViews.resize(_swapchainImages.size());
@@ -178,6 +181,9 @@ void VulkanEngine::InitCommands() {
   };
   _mainCommandBuffer =
       _device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+  // Register deletion
+  _mainDeletionQueue.PushFunction(
+      [=]() { _device.destroyCommandPool(_commandPool); });
 }
 
 void VulkanEngine::InitDefaultRenderPass() {
@@ -222,6 +228,10 @@ void VulkanEngine::InitDefaultRenderPass() {
       .pSubpasses = &subpass,
   };
   _renderPass = _device.createRenderPass(renderPassCreateInfo);
+
+  // Register deletion
+  _mainDeletionQueue.PushFunction(
+      [=]() { _device.destroyRenderPass(_renderPass); });
 }
 
 void VulkanEngine::InitFramebuffers() {
@@ -244,6 +254,11 @@ void VulkanEngine::InitFramebuffers() {
     framebufferCreateInfo.pAttachments = &_swapchainImageViews[i];
     // Create the framebuffer and store it in the array
     _framebuffers[i] = _device.createFramebuffer(framebufferCreateInfo);
+    // Register deletion
+    _mainDeletionQueue.PushFunction([=]() {
+      _device.destroyFramebuffer(_framebuffers[i]);
+      _device.destroyImageView(_swapchainImageViews[i]);
+    });
   }
 }
 
@@ -253,10 +268,19 @@ void VulkanEngine::InitSyncStructures() {
       .flags = vk::FenceCreateFlagBits::eSignaled,
   };
   _renderFence = _device.createFence(fenceCreateInfo);
+  // Register deletion
+  _mainDeletionQueue.PushFunction([=]() {
+    _device.destroyFence(_renderFence);
+  });
 
   // Create semaphores
   _presentSemaphore = _device.createSemaphore({});
   _renderSemaphore = _device.createSemaphore({});
+  // Register deletion
+  _mainDeletionQueue.PushFunction([=]() {
+    _device.destroySemaphore(_presentSemaphore);
+    _device.destroySemaphore(_renderSemaphore);
+  });
 }
 
 void VulkanEngine::InitPipelines() {
@@ -264,6 +288,10 @@ void VulkanEngine::InitPipelines() {
   // Load shaders
   auto triangleFragShader = LoadShaderModule("../shaders/triangle.frag.spv");
   auto triangleVertShader = LoadShaderModule("../shaders/triangle.vert.spv");
+  auto coloredTriangleFragShader =
+      LoadShaderModule("../shaders/colored_triangle.frag.spv");
+  auto coloredTriangleVertShader =
+      LoadShaderModule("../shaders/colored_triangle.vert.spv");
 
   // Create the trianglePipeline layout
   auto pipelineLayoutCreateInfo = vkinit::PipelineLayoutCreateInfo();
@@ -280,6 +308,33 @@ void VulkanEngine::InitPipelines() {
                           triangleFragShader)
           .GetDefaultsForExtent(_windowExtent)
           .Build(_device, _renderPass);
+
+  // Create the colored pipeline
+  _coloredTrianglePipeline =
+      PipelineBuilder()
+          .WithPipelineLayout(_trianglePipelineLayout)
+          .AddShaderStage(vk::ShaderStageFlagBits::eVertex,
+                          coloredTriangleVertShader)
+          .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
+                          coloredTriangleFragShader)
+          .GetDefaultsForExtent(_windowExtent)
+          .Build(_device, _renderPass);
+
+  // Destroy the shader modules as they are not needed anymore
+  _device.destroyShaderModule(triangleFragShader);
+  _device.destroyShaderModule(triangleVertShader);
+  _device.destroyShaderModule(coloredTriangleFragShader);
+  _device.destroyShaderModule(coloredTriangleVertShader);
+
+  // Register deletion
+  _mainDeletionQueue.PushFunction([=]() {
+    // Destroy pipelines
+    _device.destroyPipeline(_trianglePipeline);
+    _device.destroyPipeline(_coloredTrianglePipeline);
+
+    // Destroy the layout
+    _device.destroyPipelineLayout(_trianglePipelineLayout);
+  });
 }
 
 vk::ShaderModule VulkanEngine::LoadShaderModule(const char *filePath) {
@@ -311,27 +366,10 @@ vk::ShaderModule VulkanEngine::LoadShaderModule(const char *filePath) {
 void VulkanEngine::Cleanup() {
   if (_isInitialized) {
 
-    // Destroy everything in the opposite order as the creation order
+    // Wait until the GPU has stopped using the objects
+    _device.waitForFences(1, &_renderFence, true, 1000000000);
 
-    // Destroy sync structures
-    _device.destroyFence(_renderFence);
-    _device.destroySemaphore(_renderSemaphore);
-    _device.destroySemaphore(_presentSemaphore);
-
-    // Destroy command pool
-    _device.destroyCommandPool(_commandPool);
-
-    // Destroy swapchain
-    _device.destroySwapchainKHR(_swapchain);
-
-    // Destroy renderpass
-    _device.destroyRenderPass(_renderPass);
-
-    // Destroy swapchain resources
-    for (int i = 0; i < _framebuffers.size(); i++) {
-      _device.destroyFramebuffer(_framebuffers[i]);
-      _device.destroyImageView(_swapchainImageViews[i]);
-    }
+    _mainDeletionQueue.Flush();
 
     // Cleanup Vulkan
     _device.destroy();
@@ -403,9 +441,25 @@ void VulkanEngine::Draw() {
   };
   _mainCommandBuffer.beginRenderPass(rpBeginInfo, vk::SubpassContents::eInline);
 
-  _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                  _trianglePipeline);
+  // ==== Start Render code ====
+
+  switch (_selectedShader) {
+  case 0:
+    _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                    _trianglePipeline);
+    break;
+  case 1:
+    _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                    _coloredTrianglePipeline);
+    break;
+  default:
+    throw std::runtime_error("Invalid shader: " +
+                             std::to_string(_selectedShader));
+  }
+
   _mainCommandBuffer.draw(3, 1, 0, 0);
+
+  // ==== End Render code ====
 
   // End the renderpass to finish rendering commands
   _mainCommandBuffer.endRenderPass();
@@ -465,6 +519,10 @@ void VulkanEngine::Run() {
       // Keypress event
       else if (event.type == SDL_KEYDOWN) {
         std::cout << event.key.keysym.sym << std::endl;
+        // If that key is space, swap the shaders
+        if (event.key.keysym.sym == SDLK_SPACE) {
+          _selectedShader = (_selectedShader + 1) % 2;
+        }
       }
     }
 
@@ -683,4 +741,18 @@ PipelineBuilder::GetDefaultsForExtent(vk::Extent2D windowExtent) {
   WithScissors(0, 0, windowExtent);
 
   return *this;
+}
+
+// ==== DeletionQueue ====
+
+void DeletionQueue::PushFunction(std::function<void()> &&ppFunction) {
+  _deletors.push_back(ppFunction);
+}
+void DeletionQueue::Flush() {
+  // Reverse iterate the deletion queue to execute all the functions
+  for (auto it = _deletors.rbegin(); it != _deletors.rend(); it++) {
+    (*it)();
+  }
+
+  _deletors.clear();
 }

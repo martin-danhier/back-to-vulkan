@@ -6,6 +6,14 @@
 
 #include "vk_types.h"
 #include <vector>
+#include <deque>
+
+class DeletionQueue {
+  std::deque<std::function<void()>> _deletors;
+public:
+  void PushFunction(std::function<void()>&& ppFunction);
+  void Flush();
+};
 
 class VulkanEngine {
 private:
@@ -17,6 +25,7 @@ private:
   bool _isInitialized{false};
   /** Index of the current frame */
   int _frameNumber{1};
+  DeletionQueue _mainDeletionQueue;
 
   // == WINDOWING ==
 
@@ -61,6 +70,9 @@ private:
   // == test ==
   vk::PipelineLayout _trianglePipelineLayout;
   vk::Pipeline _trianglePipeline;
+  vk::Pipeline _coloredTrianglePipeline;
+  // Shader switching
+  int32_t _selectedShader = 0;
 
   // == SYNCHRONIZATION ==
   vk::Semaphore _presentSemaphore;
@@ -134,3 +146,4 @@ public:
   PipelineBuilder GetDefaultsForExtent(vk::Extent2D windowExtent);
   vk::Pipeline Build(vk::Device device, vk::RenderPass pass);
 };
+

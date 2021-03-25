@@ -4,9 +4,10 @@
 
 #pragma once
 
+#include "Mesh.h"
 #include "vk_types.h"
-#include <vector>
 #include <deque>
+#include <vector>
 
 class DeletionQueue {
   std::deque<std::function<void()>> _deletors;
@@ -25,7 +26,10 @@ private:
   bool _isInitialized{false};
   /** Index of the current frame */
   int _frameNumber{1};
+  /** Deletion queue handling object deletion */
   DeletionQueue _mainDeletionQueue;
+  /** Memory allocator */
+  VmaAllocator _allocator;
 
   // == WINDOWING ==
 
@@ -71,6 +75,9 @@ private:
   vk::PipelineLayout _trianglePipelineLayout;
   vk::Pipeline _trianglePipeline;
   vk::Pipeline _coloredTrianglePipeline;
+  vk::Pipeline _meshPipeline;
+  Mesh _triangleMesh;
+
   // Shader switching
   int32_t _selectedShader = 0;
 
@@ -87,6 +94,8 @@ private:
   void InitFramebuffers();
   void InitSyncStructures();
   void InitPipelines();
+  void LoadMeshes();
+  void UploadMesh(Mesh& mesh);
   vk::ShaderModule LoadShaderModule(const char* filePath);
 
 

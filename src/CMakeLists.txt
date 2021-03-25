@@ -6,7 +6,7 @@ add_executable(the_good_one
         engine/vk_types.h
         engine/vk_init.cpp
         engine/vk_init.h
-        )
+        engine/Mesh.cpp engine/Mesh.h)
 
 # Add dependencies
 

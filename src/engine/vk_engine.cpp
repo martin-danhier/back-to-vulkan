@@ -14,6 +14,9 @@
 #include "vk_init.h"
 #include "vk_types.h"
 
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 void VulkanEngine::Init() {
@@ -46,6 +49,9 @@ void VulkanEngine::Init() {
 
   // Initialize pipelines
   InitPipelines();
+
+  // Initialize meshes
+  LoadMeshes();
 
   // Set the _isInitialized property to true if everything went fine
   _isInitialized = true;
@@ -113,6 +119,14 @@ void VulkanEngine::InitVulkan() {
       vk::Queue(vkbDevice.get_queue(vkb::QueueType::graphics).value());
   _graphicsQueueFamily =
       vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+  // Initialize memory allocator
+  VmaAllocatorCreateInfo allocatorInfo = {};
+  allocatorInfo.physicalDevice = _chosenGPU;
+  allocatorInfo.device = _device;
+  allocatorInfo.instance = _instance;
+  vmaCreateAllocator(&allocatorInfo, &_allocator);
+
 }
 
 void VulkanEngine::InitSwapchain() {
@@ -363,6 +377,31 @@ vk::ShaderModule VulkanEngine::LoadShaderModule(const char *filePath) {
   return _device.createShaderModule(shaderCreateInfo);
 }
 
+void VulkanEngine::LoadMeshes() {
+  // Make the array 3 vertices long
+  std::vector<Vertex> triangleVertices(3);
+  // Triangle
+  triangleVertices[0].position = {1.f, 1.f, 0.f};
+  triangleVertices[1].position = {-1.f, 1.f, 0.f};
+  triangleVertices[2].position = {01.f, -1.f, 0.f};
+  // Triangle colors, all green
+  triangleVertices[0].color = {0.f, 1.0f, 0.f};
+  triangleVertices[1].color = {0.f, 1.0f, 0.f};
+  triangleVertices[2].color = {0.f, 1.0f, 0.f};
+
+  _triangleMesh = Mesh(triangleVertices);
+
+  UploadMesh(_triangleMesh);
+
+}
+
+void VulkanEngine::UploadMesh(Mesh &mesh) {
+  // Allocate vertex buffer
+  vk::BufferCreateInfo bufferInfo {
+    .size = mesh._vertices.size()
+  };
+}
+
 void VulkanEngine::Cleanup() {
   if (_isInitialized) {
 
@@ -372,6 +411,8 @@ void VulkanEngine::Cleanup() {
     _mainDeletionQueue.Flush();
 
     // Cleanup Vulkan
+    vmaDestroyAllocator(_allocator);
+
     _device.destroy();
     _instance.destroySurfaceKHR(_surface);
 #ifndef NDEBUG
@@ -530,6 +571,7 @@ void VulkanEngine::Run() {
     Draw();
   }
 }
+
 
 // ===== PIPELINE BUILDER =====
 

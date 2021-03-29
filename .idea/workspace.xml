@@ -21,9 +21,11 @@
   <component name="ChangeListManager">
     <list default="true" id="d3f53b05-54ab-475c-a5c8-fcdd40b597dc" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/external/glm" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/tinyobjloader" beforeDir="false" afterPath="$PROJECT_DIR$/external/tinyobjloader" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/external/tinyobjloader/tiny_obj_loader.h" beforeDir="false" afterPath="$PROJECT_DIR$/external/tinyobjloader/tiny_obj_loader.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/Mesh.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/Mesh.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/Mesh.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/Mesh.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_types.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_types.h" afterDir="false" />
@@ -114,6 +116,11 @@
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <list>
       <item itemvalue="CMake Application.Shaders" />
       <item itemvalue="CMake Application.imgui" />
@@ -170,6 +177,9 @@
       <workItem from="1616604567514" duration="6622000" />
       <workItem from="1616626038186" duration="599000" />
       <workItem from="1616677375333" duration="1987000" />
+      <workItem from="1616959468800" duration="739000" />
+      <workItem from="1616962587044" duration="8239000" />
+      <workItem from="1617007056442" duration="2677000" />
     </task>
     <servers />
   </component>
@@ -200,6 +210,11 @@
           <url>file://$PROJECT_DIR$/external/vk-bootstrap/src/VkBootstrap.cpp</url>
           <line>1646</line>
           <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/src/engine/vk_engine.cpp</url>
+          <line>648</line>
+          <option name="timeStamp" value="13" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

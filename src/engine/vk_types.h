@@ -11,6 +11,6 @@
 #include <vk_mem_alloc.h>
 
 struct AllocatedBuffer {
-  vk::Buffer _buffer;
-  VmaAllocation _allocation;
+  vk::Buffer buffer;
+  VmaAllocation allocation{};
 };

@@ -6,8 +6,14 @@
 
 #include "Mesh.h"
 #include "vk_types.h"
+#include <glm/glm.hpp>
 #include <deque>
 #include <vector>
+
+struct MeshPushConstants {
+  glm::vec4 data;
+  glm::mat4 render_matrix;
+};
 
 class DeletionQueue {
   std::deque<std::function<void()>> _deletors;
@@ -75,6 +81,7 @@ private:
   vk::PipelineLayout _trianglePipelineLayout;
   vk::Pipeline _trianglePipeline;
   vk::Pipeline _coloredTrianglePipeline;
+  vk::PipelineLayout _meshPipelineLayout;
   vk::Pipeline _meshPipeline;
   Mesh _triangleMesh;
 
@@ -95,7 +102,6 @@ private:
   void InitSyncStructures();
   void InitPipelines();
   void LoadMeshes();
-  void UploadMesh(Mesh& mesh);
   vk::ShaderModule LoadShaderModule(const char* filePath);
 
 
@@ -144,7 +150,7 @@ private:
 
 public:
   PipelineBuilder AddShaderStage(vk::ShaderStageFlagBits stage, vk::ShaderModule shaderModule);
-  PipelineBuilder WithVertexInput();
+  PipelineBuilder WithVertexInput(const VertexInputDescription& vertexInputDescription);
   PipelineBuilder WithAssemblyTopology(vk::PrimitiveTopology topology);
   PipelineBuilder WithPolygonMode(vk::PolygonMode polygonMode);
   PipelineBuilder WithPipelineLayout(vk::PipelineLayout pipelineLayout);

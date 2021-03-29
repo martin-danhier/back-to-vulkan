@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <glm/gtx/transform.hpp>
 
 #include "vk_init.h"
 #include "vk_types.h"
@@ -121,12 +122,35 @@ void VulkanEngine::InitVulkan() {
       vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
 
   // Initialize memory allocator
-  VmaAllocatorCreateInfo allocatorInfo = {};
-  allocatorInfo.physicalDevice = _chosenGPU;
-  allocatorInfo.device = _device;
-  allocatorInfo.instance = _instance;
-  vmaCreateAllocator(&allocatorInfo, &_allocator);
 
+  // Give VMA the functions pointers of vulkan functions
+  // We need to do that since we load them dynamically
+  VmaVulkanFunctions vulkanFunctions{
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceProperties,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceMemoryProperties,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkAllocateMemory,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkFreeMemory,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkMapMemory,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkUnmapMemory,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkFlushMappedMemoryRanges,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkInvalidateMappedMemoryRanges,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkBindBufferMemory,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkBindImageMemory,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkGetBufferMemoryRequirements,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkGetImageMemoryRequirements,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateBuffer,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyBuffer,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateImage,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyImage,
+      VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdCopyBuffer,
+  };
+  VmaAllocatorCreateInfo allocatorInfo{
+      .physicalDevice = _chosenGPU,
+      .device = _device,
+      .pVulkanFunctions = &vulkanFunctions,
+      .instance = _instance,
+  };
+  vmaCreateAllocator(&allocatorInfo, &_allocator);
 }
 
 void VulkanEngine::InitSwapchain() {
@@ -283,9 +307,8 @@ void VulkanEngine::InitSyncStructures() {
   };
   _renderFence = _device.createFence(fenceCreateInfo);
   // Register deletion
-  _mainDeletionQueue.PushFunction([=]() {
-    _device.destroyFence(_renderFence);
-  });
+  _mainDeletionQueue.PushFunction(
+      [=]() { _device.destroyFence(_renderFence); });
 
   // Create semaphores
   _presentSemaphore = _device.createSemaphore({});
@@ -306,6 +329,32 @@ void VulkanEngine::InitPipelines() {
       LoadShaderModule("../shaders/colored_triangle.frag.spv");
   auto coloredTriangleVertShader =
       LoadShaderModule("../shaders/colored_triangle.vert.spv");
+  auto meshVertShader = LoadShaderModule("../shaders/tri_mesh.vert.spv");
+
+  // Create the mesh pipeline layout
+  VertexInputDescription vertexDescription = Vertex::GetVertexDescription();
+
+  auto meshPipelineLayoutCreateInfo = vkinit::PipelineLayoutCreateInfo();
+  constexpr vk::PushConstantRange pushConstants {
+      .stageFlags = vk::ShaderStageFlagBits::eVertex,
+      .offset = 0,
+      .size = sizeof(MeshPushConstants),
+  };
+  meshPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstants;
+  meshPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+  _meshPipelineLayout = _device.createPipelineLayout(meshPipelineLayoutCreateInfo);
+
+
+  // Create the mesh pipeline
+  _meshPipeline =
+      PipelineBuilder()
+          .WithPipelineLayout(_meshPipelineLayout)
+          .GetDefaultsForExtent(_windowExtent)
+          .AddShaderStage(vk::ShaderStageFlagBits::eVertex, meshVertShader)
+          .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
+                          coloredTriangleFragShader)
+          .WithVertexInput(vertexDescription)
+          .Build(_device, _renderPass);
 
   // Create the trianglePipeline layout
   auto pipelineLayoutCreateInfo = vkinit::PipelineLayoutCreateInfo();
@@ -339,14 +388,17 @@ void VulkanEngine::InitPipelines() {
   _device.destroyShaderModule(triangleVertShader);
   _device.destroyShaderModule(coloredTriangleFragShader);
   _device.destroyShaderModule(coloredTriangleVertShader);
+  _device.destroyShaderModule(meshVertShader);
 
   // Register deletion
   _mainDeletionQueue.PushFunction([=]() {
     // Destroy pipelines
     _device.destroyPipeline(_trianglePipeline);
     _device.destroyPipeline(_coloredTrianglePipeline);
+    _device.destroyPipeline(_meshPipeline);
 
     // Destroy the layout
+    _device.destroyPipelineLayout(_meshPipelineLayout);
     _device.destroyPipelineLayout(_trianglePipelineLayout);
   });
 }
@@ -391,15 +443,7 @@ void VulkanEngine::LoadMeshes() {
 
   _triangleMesh = Mesh(triangleVertices);
 
-  UploadMesh(_triangleMesh);
-
-}
-
-void VulkanEngine::UploadMesh(Mesh &mesh) {
-  // Allocate vertex buffer
-  vk::BufferCreateInfo bufferInfo {
-    .size = mesh._vertices.size()
-  };
+  _triangleMesh.Upload(_allocator, _mainDeletionQueue);
 }
 
 void VulkanEngine::Cleanup() {
@@ -484,21 +528,46 @@ void VulkanEngine::Draw() {
 
   // ==== Start Render code ====
 
-  switch (_selectedShader) {
-  case 0:
+  if (_selectedShader == 0) {
     _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                     _trianglePipeline);
-    break;
-  case 1:
+    _mainCommandBuffer.draw(3, 1, 0, 0);
+
+  } else if (_selectedShader == 1) {
     _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                     _coloredTrianglePipeline);
-    break;
-  default:
-    throw std::runtime_error("Invalid shader: " +
-                             std::to_string(_selectedShader));
+    _mainCommandBuffer.draw(3, 1, 0, 0);
+  } else {
+    _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                    _meshPipeline);
+    auto buffer = _triangleMesh.GetVertexBuffer();
+    VkDeviceSize offset = 0;
+    _mainCommandBuffer.bindVertexBuffers(0, 1, &buffer, &offset);
+
+    //make a model view matrix for rendering the object
+    //camera position
+    glm::vec3 camPos = { 0.f,0.f,-2.f };
+
+    glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+    //camera projection
+    glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+    projection[1][1] *= -1;
+    //model rotation
+    glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(_frameNumber * 0.4f), glm::vec3(0, 1, 0));
+
+    //calculate final mesh matrix
+    glm::mat4 mesh_matrix = projection * view * model;
+
+    MeshPushConstants constants {
+        .render_matrix = mesh_matrix,
+    };
+    _mainCommandBuffer.pushConstants(_meshPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(MeshPushConstants), &constants);
+
+    // Draw
+    _mainCommandBuffer.draw(_triangleMesh.GetVertexCount(), 1, 0, 0);
   }
 
-  _mainCommandBuffer.draw(3, 1, 0, 0);
+
 
   // ==== End Render code ====
 
@@ -562,7 +631,7 @@ void VulkanEngine::Run() {
         std::cout << event.key.keysym.sym << std::endl;
         // If that key is space, swap the shaders
         if (event.key.keysym.sym == SDLK_SPACE) {
-          _selectedShader = (_selectedShader + 1) % 2;
+          _selectedShader = (_selectedShader + 1) % 3;
         }
       }
     }
@@ -572,10 +641,10 @@ void VulkanEngine::Run() {
   }
 }
 
-
 // ===== PIPELINE BUILDER =====
 
 vk::Pipeline PipelineBuilder::Build(vk::Device device, vk::RenderPass pass) {
+
   // Set pipeline blend
   _colorBlendAttachment = vk::PipelineColorBlendAttachmentState{
       .blendEnable = false,
@@ -600,7 +669,10 @@ vk::Pipeline PipelineBuilder::Build(vk::Device device, vk::RenderPass pass) {
   if (!_inputAssemblyInited)
     WithAssemblyTopology(vk::PrimitiveTopology::eTriangleList);
   if (!_vertexInputInited)
-    WithVertexInput();
+    WithVertexInput(VertexInputDescription{
+        .bindings = {},
+        .attributes = {},
+    });
 
   // Create viewport state from stored viewport and scissors
   vk::PipelineViewportStateCreateInfo viewportState{
@@ -670,12 +742,16 @@ PipelineBuilder PipelineBuilder::AddShaderStage(vk::ShaderStageFlagBits stage,
   // Return this so it is easier to chain functions
   return *this;
 }
-PipelineBuilder PipelineBuilder::WithVertexInput() {
-
+PipelineBuilder PipelineBuilder::WithVertexInput(
+    const VertexInputDescription &vertexInputDescription) {
   // Empty for now
   _vertexInputInfo = vk::PipelineVertexInputStateCreateInfo{
-      .vertexBindingDescriptionCount = 0,
-      .vertexAttributeDescriptionCount = 0,
+      .vertexBindingDescriptionCount =
+          static_cast<uint32_t>(vertexInputDescription.bindings.size()),
+      .pVertexBindingDescriptions = vertexInputDescription.bindings.data(),
+      .vertexAttributeDescriptionCount =
+          static_cast<uint32_t>(vertexInputDescription.attributes.size()),
+      .pVertexAttributeDescriptions = vertexInputDescription.attributes.data(),
   };
   _vertexInputInited = true;
 

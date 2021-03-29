@@ -8,9 +8,9 @@
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
 #include <fstream>
+#include <glm/gtx/transform.hpp>
 #include <iostream>
 #include <string>
-#include <glm/gtx/transform.hpp>
 
 #include "vk_init.h"
 #include "vk_types.h"
@@ -200,6 +200,39 @@ void VulkanEngine::InitSwapchain() {
 
     // Store it
     _swapchainImageViews[i] = _device.createImageView(createInfo);
+
+    // Create depth image
+
+    vk::Extent3D depthImageExtent = {
+        _windowExtent.width,
+        _windowExtent.height,
+        1,
+    };
+    _depthImageFormat = vk::Format::eD32Sfloat;
+
+    // Allocate image
+    auto imageCreateInfo = vkinit::ImageCreateInfo(
+        _depthImageFormat, vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        depthImageExtent);
+    VmaAllocationCreateInfo allocationCreateInfo{
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(
+            vk::MemoryPropertyFlagBits::eDeviceLocal),
+    };
+    vmaCreateImage(_allocator, (VkImageCreateInfo *)&imageCreateInfo,
+                   &allocationCreateInfo, (VkImage *)&_depthImage.image,
+                   &_depthImage.allocation, nullptr);
+
+    // Create image view for the depth image to use for rendering
+    auto imageViewCreateInfo = vkinit::ImageViewCreateInfo(
+        _depthImageFormat, _depthImage.image, vk::ImageAspectFlagBits::eDepth);
+    _depthImageView = _device.createImageView(imageViewCreateInfo);
+
+    // Register deletion
+    _mainDeletionQueue.PushFunction([=]() {
+      _device.destroyImageView(_depthImageView);
+      vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
+    });
   }
 }
 
@@ -251,17 +284,42 @@ void VulkanEngine::InitDefaultRenderPass() {
       .layout = vk::ImageLayout::eColorAttachmentOptimal,
   };
 
+  // Depth attachment
+  vk::AttachmentDescription depthAttachment{
+      // The attachment must use the same format as the swapchain
+      .format = _depthImageFormat,
+      // No multisampling, so 1 sample
+      .samples = vk::SampleCountFlagBits::e1,
+      .loadOp = vk::AttachmentLoadOp::eClear,
+      .storeOp = vk::AttachmentStoreOp::eStore,
+      .stencilLoadOp = vk::AttachmentLoadOp::eClear,
+      .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+      // Don't care about the starting layout of the attachment
+      .initialLayout = vk::ImageLayout::eUndefined,
+      // Once the renderpass ends, the image should be in a format ready for
+      // presenting
+      .finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+  };
+
+  // Reference to the attachment in the renderpass (sort of smart pointer)
+  vk::AttachmentReference depthAttachmentRef{
+      .attachment = 1, // Index of the colorAttachment in the renderpass
+      .layout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+  };
+
   // Create the subpass
   vk::SubpassDescription subpass{
       .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
       .colorAttachmentCount = 1,
       .pColorAttachments = &colorAttachmentRef,
+      .pDepthStencilAttachment = &depthAttachmentRef,
   };
 
   // Create the render pass
+  vk::AttachmentDescription attachments[2] = {colorAttachment, depthAttachment};
   vk::RenderPassCreateInfo renderPassCreateInfo{
-      .attachmentCount = 1,
-      .pAttachments = &colorAttachment,
+      .attachmentCount = 2,
+      .pAttachments = attachments,
       .subpassCount = 1,
       .pSubpasses = &subpass,
   };
@@ -273,11 +331,15 @@ void VulkanEngine::InitDefaultRenderPass() {
 }
 
 void VulkanEngine::InitFramebuffers() {
+  // Create attachments
+  vk::ImageView attachments[2];
+  attachments[1] = _depthImageView;
 
   // Create the framebuffers
   vk::FramebufferCreateInfo framebufferCreateInfo{
       .renderPass = _renderPass,
-      .attachmentCount = 1,
+      .attachmentCount = 2,
+      .pAttachments = attachments,
       .width = _windowExtent.width,
       .height = _windowExtent.height,
       .layers = 1,
@@ -288,8 +350,9 @@ void VulkanEngine::InitFramebuffers() {
   // Init the framebuffers array
   _framebuffers = std::vector<vk::Framebuffer>(swapchainImageCount);
   for (int i = 0; i < swapchainImageCount; ++i) {
+
     // Link the corresponding image
-    framebufferCreateInfo.pAttachments = &_swapchainImageViews[i];
+    attachments[0] = _swapchainImageViews[i];
     // Create the framebuffer and store it in the array
     _framebuffers[i] = _device.createFramebuffer(framebufferCreateInfo);
     // Register deletion
@@ -335,15 +398,15 @@ void VulkanEngine::InitPipelines() {
   VertexInputDescription vertexDescription = Vertex::GetVertexDescription();
 
   auto meshPipelineLayoutCreateInfo = vkinit::PipelineLayoutCreateInfo();
-  constexpr vk::PushConstantRange pushConstants {
+  constexpr vk::PushConstantRange pushConstants{
       .stageFlags = vk::ShaderStageFlagBits::eVertex,
       .offset = 0,
       .size = sizeof(MeshPushConstants),
   };
   meshPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstants;
   meshPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-  _meshPipelineLayout = _device.createPipelineLayout(meshPipelineLayoutCreateInfo);
-
+  _meshPipelineLayout =
+      _device.createPipelineLayout(meshPipelineLayoutCreateInfo);
 
   // Create the mesh pipeline
   _meshPipeline =
@@ -354,6 +417,7 @@ void VulkanEngine::InitPipelines() {
           .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
                           coloredTriangleFragShader)
           .WithVertexInput(vertexDescription)
+          .WithDepthTestingSettings(true, true, vk::CompareOp::eLessOrEqual)
           .Build(_device, _renderPass);
 
   // Create the trianglePipeline layout
@@ -514,7 +578,11 @@ void VulkanEngine::Draw() {
   // Define a clear color from frame number
   float flash = abs(sin(static_cast<float_t>(_frameNumber) / 120.f));
   float flash2 = abs(sin(static_cast<float_t>(_frameNumber) / 180.f));
-  vk::ClearValue clearValue(vkinit::GetColor(1 - flash, flash2, flash));
+  vk::ClearValue clearColorValue(vkinit::GetColor(1 - flash, flash2, flash));
+
+  // Clear depth stencil
+  vk::ClearValue clearDepthValue(vk::ClearDepthStencilValue{1.0f});
+  vk::ClearValue clearValues[2] = {clearColorValue, clearDepthValue};
 
   // Start the main renderpass
   vk::RenderPassBeginInfo rpBeginInfo{
@@ -525,8 +593,8 @@ void VulkanEngine::Draw() {
               .offset = {.x = 0, .y = 0},
               .extent = _windowExtent,
           },
-      .clearValueCount = 1,
-      .pClearValues = &clearValue,
+      .clearValueCount = 2,
+      .pClearValues = clearValues,
   };
   _mainCommandBuffer.beginRenderPass(rpBeginInfo, vk::SubpassContents::eInline);
 
@@ -545,37 +613,43 @@ void VulkanEngine::Draw() {
     _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                     _meshPipeline);
     Mesh selectedMesh;
-    if (_selectedShader == 2) selectedMesh = _triangleMesh;
-    else selectedMesh = _monkeyMesh;
+    if (_selectedShader == 2)
+      selectedMesh = _triangleMesh;
+    else
+      selectedMesh = _monkeyMesh;
 
     VkDeviceSize offset = 0;
     vk::Buffer buffer = selectedMesh.GetVertexBuffer();
     _mainCommandBuffer.bindVertexBuffers(0, 1, &buffer, &offset);
 
-    //make a model view matrix for rendering the object
-    //camera position
-    glm::vec3 camPos = { 0.f,0.f,-2.f };
+    // make a model view matrix for rendering the object
+    // camera position
+    glm::vec3 camPos = {0.f, 0.f, -2.f};
 
     glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
-    //camera projection
-    glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+    // camera projection
+    glm::mat4 projection =
+        glm::perspective(glm::radians(70.f), static_cast<float_t>(_windowExtent.width) / _windowExtent.height, 0.1f, 200.0f);
     projection[1][1] *= -1;
-    //model rotation
-    glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(static_cast<float_t>(_frameNumber) * 0.4f), glm::vec3(0, 1, 0));
+    // model rotation
+    glm::mat4 model =
+        glm::rotate(glm::mat4{1.0f},
+                    glm::radians(static_cast<float_t>(_frameNumber) * 0.4f),
+                    glm::vec3(0, 1, 0));
 
-    //calculate final mesh matrix
+    // calculate final mesh matrix
     glm::mat4 mesh_matrix = projection * view * model;
 
-    MeshPushConstants constants {
+    MeshPushConstants constants{
         .render_matrix = mesh_matrix,
     };
-    _mainCommandBuffer.pushConstants(_meshPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(MeshPushConstants), &constants);
+    _mainCommandBuffer.pushConstants(_meshPipelineLayout,
+                                     vk::ShaderStageFlagBits::eVertex, 0,
+                                     sizeof(MeshPushConstants), &constants);
 
     // Draw
     _mainCommandBuffer.draw(selectedMesh.GetVertexCount(), 1, 0, 0);
   }
-
-
 
   // ==== End Render code ====
 
@@ -681,6 +755,8 @@ vk::Pipeline PipelineBuilder::Build(vk::Device device, vk::RenderPass pass) {
         .bindings = {},
         .attributes = {},
     });
+  if (!_depthSettingsProvided)
+    WithDepthTestingSettings(false, false);
 
   // Create viewport state from stored viewport and scissors
   vk::PipelineViewportStateCreateInfo viewportState{
@@ -719,12 +795,14 @@ vk::Pipeline PipelineBuilder::Build(vk::Device device, vk::RenderPass pass) {
       .pViewportState = &viewportState,
       .pRasterizationState = &_rasterizer,
       .pMultisampleState = &_multisampling,
+      .pDepthStencilState = &_depthStencilCreateInfo,
       .pColorBlendState = &colorBlending,
       .layout = _pipelineLayout,
       .renderPass = pass,
       .subpass = 0,
       .basePipelineHandle = nullptr,
   };
+
   auto result = device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
   // Handle result
   switch (result.result) {
@@ -866,6 +944,23 @@ PipelineBuilder::GetDefaultsForExtent(vk::Extent2D windowExtent) {
   WithViewport(0.0f, 0.0f, windowExtent.width, windowExtent.height, 0.0f, 1.0f);
   WithScissors(0, 0, windowExtent);
 
+  return *this;
+}
+PipelineBuilder
+PipelineBuilder::WithDepthTestingSettings(bool doDepthTest, bool doDepthWrite,
+                                          vk::CompareOp compareOp) {
+
+  _depthStencilCreateInfo = vk::PipelineDepthStencilStateCreateInfo{
+      .depthTestEnable = doDepthTest,
+      .depthWriteEnable = doDepthWrite,
+      .depthCompareOp = doDepthTest ? compareOp : vk::CompareOp::eAlways,
+      .depthBoundsTestEnable = false,
+      .stencilTestEnable = false,
+      .minDepthBounds = 0.0f,
+      .maxDepthBounds = 1.0f,
+  };
+
+  _depthSettingsProvided = true;
   return *this;
 }
 

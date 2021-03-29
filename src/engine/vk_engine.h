@@ -60,10 +60,13 @@ private:
   vk::SwapchainKHR _swapchain;
   /** Image format expected by the windowing system */
   vk::Format _swapchainImageFormat;
+  vk::Format _depthImageFormat;
   /** Array of images from the swapchain */
   std::vector<vk::Image> _swapchainImages;
   /** Array of image views from the swapchain */
   std::vector<vk::ImageView> _swapchainImageViews;
+  AllocatedImage _depthImage;
+  vk::ImageView _depthImageView;
   /** Queue used for rendering */
   vk::Queue _graphicsQueue;
   /** Family of the graphics queue */
@@ -139,10 +142,12 @@ private:
   vk::PipelineColorBlendAttachmentState _colorBlendAttachment;
   vk::PipelineMultisampleStateCreateInfo _multisampling;
   vk::PipelineLayout _pipelineLayout;
+  vk::PipelineDepthStencilStateCreateInfo _depthStencilCreateInfo;
   // Booleans to store whether default should be applied or not
   bool _rasterizerInited = false;
   bool _inputAssemblyInited = false;
   bool _vertexInputInited = false;
+  bool _depthSettingsProvided = false;
 #ifndef NDEBUG
   bool _pipelineLayoutInited = false;
   bool _scissorsInited = false;
@@ -156,6 +161,7 @@ public:
   PipelineBuilder WithPolygonMode(vk::PolygonMode polygonMode);
   PipelineBuilder WithPipelineLayout(vk::PipelineLayout pipelineLayout);
   PipelineBuilder WithScissors(int32_t xOffset, int32_t yOffset, vk::Extent2D extent);
+  PipelineBuilder WithDepthTestingSettings(bool doDepthTest, bool doDepthWrite, vk::CompareOp compareOp = vk::CompareOp::eAlways);
   PipelineBuilder WithScissors(vk::Rect2D scissors);
   PipelineBuilder WithViewport(float_t x, float_t y, float_t width, float_t height, float_t minDepth, float_t maxDepth);
   PipelineBuilder WithViewport(vk::Viewport viewport);

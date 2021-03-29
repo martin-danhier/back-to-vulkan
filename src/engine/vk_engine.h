@@ -84,6 +84,7 @@ private:
   vk::PipelineLayout _meshPipelineLayout;
   vk::Pipeline _meshPipeline;
   Mesh _triangleMesh;
+  Mesh _monkeyMesh;
 
   // Shader switching
   int32_t _selectedShader = 0;

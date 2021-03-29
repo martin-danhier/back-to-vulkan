@@ -440,10 +440,14 @@ void VulkanEngine::LoadMeshes() {
   triangleVertices[0].color = {0.f, 1.0f, 0.f};
   triangleVertices[1].color = {0.f, 1.0f, 0.f};
   triangleVertices[2].color = {0.f, 1.0f, 0.f};
-
   _triangleMesh = Mesh(triangleVertices);
 
+  // Load the monkey
+  _monkeyMesh.LoadFromObj("../assets/monkey_smooth.obj");
+
+  // Upload meshes
   _triangleMesh.Upload(_allocator, _mainDeletionQueue);
+  _monkeyMesh.Upload(_allocator, _mainDeletionQueue);
 }
 
 void VulkanEngine::Cleanup() {
@@ -540,8 +544,12 @@ void VulkanEngine::Draw() {
   } else {
     _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                     _meshPipeline);
-    auto buffer = _triangleMesh.GetVertexBuffer();
+    Mesh selectedMesh;
+    if (_selectedShader == 2) selectedMesh = _triangleMesh;
+    else selectedMesh = _monkeyMesh;
+
     VkDeviceSize offset = 0;
+    vk::Buffer buffer = selectedMesh.GetVertexBuffer();
     _mainCommandBuffer.bindVertexBuffers(0, 1, &buffer, &offset);
 
     //make a model view matrix for rendering the object
@@ -553,7 +561,7 @@ void VulkanEngine::Draw() {
     glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
     projection[1][1] *= -1;
     //model rotation
-    glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(_frameNumber * 0.4f), glm::vec3(0, 1, 0));
+    glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(static_cast<float_t>(_frameNumber) * 0.4f), glm::vec3(0, 1, 0));
 
     //calculate final mesh matrix
     glm::mat4 mesh_matrix = projection * view * model;
@@ -564,7 +572,7 @@ void VulkanEngine::Draw() {
     _mainCommandBuffer.pushConstants(_meshPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(MeshPushConstants), &constants);
 
     // Draw
-    _mainCommandBuffer.draw(_triangleMesh.GetVertexCount(), 1, 0, 0);
+    _mainCommandBuffer.draw(selectedMesh.GetVertexCount(), 1, 0, 0);
   }
 
 
@@ -631,7 +639,7 @@ void VulkanEngine::Run() {
         std::cout << event.key.keysym.sym << std::endl;
         // If that key is space, swap the shaders
         if (event.key.keysym.sym == SDLK_SPACE) {
-          _selectedShader = (_selectedShader + 1) % 3;
+          _selectedShader = (_selectedShader + 1) % 4;
         }
       }
     }

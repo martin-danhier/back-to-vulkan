@@ -23,7 +23,7 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/engine/Mesh.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/Mesh.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/shaders/triangle.frag" beforeDir="false" afterPath="$PROJECT_DIR$/shaders/triangle.frag" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.h" afterDir="false" />
     </list>
@@ -83,11 +83,6 @@
     </key>
   </component>
   <component name="RunManager" selected="CMake Application.the_good_one">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="Shaders" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="Shaders" CONFIG_NAME="Debug-Visual Studio">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -185,7 +180,8 @@
       <workItem from="1617048692481" duration="2817000" />
       <workItem from="1617085401387" duration="3357000" />
       <workItem from="1617093733846" duration="288000" />
-      <workItem from="1617094217622" duration="11119000" />
+      <workItem from="1617094217622" duration="14429000" />
+      <workItem from="1617137034467" duration="1833000" />
     </task>
     <servers />
   </component>
@@ -221,16 +217,6 @@
           <url>file://$PROJECT_DIR$/src/engine/vk_engine.cpp</url>
           <line>250</line>
           <option name="timeStamp" value="15" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/src/engine/Mesh.cpp</url>
-          <line>30</line>
-          <option name="timeStamp" value="16" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/src/engine/Mesh.cpp</url>
-          <line>29</line>
-          <option name="timeStamp" value="18" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

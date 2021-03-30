@@ -43,6 +43,7 @@ private:
   bool _isInitialized{false};
   /** Index of the current frame */
   int _frameNumber{1};
+  double_t _deltaTime = 0;
   /** Deletion queue handling object deletion */
   DeletionQueue _mainDeletionQueue;
   /** Memory allocator */
@@ -95,6 +96,10 @@ private:
   std::vector<RenderObject> _renderables;
   std::unordered_map<std::string, Material> _materials;
   std::unordered_map<std::string, Mesh> _meshes;
+
+  // == Camera ==
+  glm::vec3 _cameraMotion {0.0f};
+  glm::vec3 _cameraPosition;
 
   // Shader switching
   int32_t _selectedShader = 0;

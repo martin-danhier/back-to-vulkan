@@ -404,6 +404,7 @@ void VulkanEngine::InitPipelines() {
   // Load shaders
   auto coloredTriangleFragShader =
       LoadShaderModule("../shaders/colored_triangle.frag.spv");
+  auto redTriangleFragShader = LoadShaderModule("../shaders/triangle.frag.spv");
   auto meshVertShader = LoadShaderModule("../shaders/tri_mesh.vert.spv");
 
   // Create pipelines
@@ -434,8 +435,21 @@ void VulkanEngine::InitPipelines() {
           .WithDepthTestingSettings(true, true, vk::CompareOp::eLessOrEqual)
           .Build(_device, _renderPass);
 
+  // Create the red mesh pipeline
+  auto redMeshPipeline =
+      PipelineBuilder()
+          .WithPipelineLayout(meshPipelineLayout)
+          .GetDefaultsForExtent(_windowExtent)
+          .AddShaderStage(vk::ShaderStageFlagBits::eVertex, meshVertShader)
+          .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
+                          redTriangleFragShader)
+          .WithVertexInput(vertexDescription)
+          .WithDepthTestingSettings(true, true, vk::CompareOp::eLessOrEqual)
+          .Build(_device, _renderPass);
+
   // Save materials
   CreateMaterial(meshPipeline, meshPipelineLayout, "default");
+  CreateMaterial(redMeshPipeline, meshPipelineLayout, "red");
 
   // Destroy the shader modules as they are not needed anymore
   _device.destroyShaderModule(coloredTriangleFragShader);
@@ -637,8 +651,17 @@ void VulkanEngine::Run() {
   SDL_Event event;
   bool shouldQuit = false;
 
+  // Init variables for delta time computation
+  uint64_t previousFrameTime = 0, currentFrameTime = 0;
+
   // Main loop
   while (!shouldQuit) {
+
+    // Update delta time
+    previousFrameTime = currentFrameTime;
+    currentFrameTime = SDL_GetPerformanceCounter();
+    _deltaTime = static_cast<double_t>(currentFrameTime - previousFrameTime) /
+                 static_cast<double_t>(SDL_GetPerformanceFrequency());
 
     // Handle window event in a queue
     while (SDL_PollEvent(&event) != 0) {
@@ -648,13 +671,54 @@ void VulkanEngine::Run() {
       }
       // Keypress event
       else if (event.type == SDL_KEYDOWN) {
-        std::cout << event.key.keysym.sym << std::endl;
-        // If that key is space, swap the shaders
-        if (event.key.keysym.sym == SDLK_SPACE) {
-          _selectedShader = (_selectedShader + 1) % 4;
+        // Unit per second of the camera
+        constexpr float_t CAMERA_MOVEMENT_SPEED = 2.5f;
+
+        // Z
+        if (event.key.keysym.sym == SDLK_z) {
+          _cameraMotion.z = CAMERA_MOVEMENT_SPEED;
+        }
+        // S
+        else if (event.key.keysym.sym == SDLK_s) {
+          _cameraMotion.z = -CAMERA_MOVEMENT_SPEED;
+        }
+        // Q
+        else if (event.key.keysym.sym == SDLK_q) {
+          _cameraMotion.x = CAMERA_MOVEMENT_SPEED;
+        }
+        // D
+        else if (event.key.keysym.sym == SDLK_d) {
+          _cameraMotion.x = -CAMERA_MOVEMENT_SPEED;
+        }
+        // SPACE
+        else if (event.key.keysym.sym == SDLK_SPACE) {
+          _cameraMotion.y = -CAMERA_MOVEMENT_SPEED;
+        }
+        // SHIFT
+        else if (event.key.keysym.sym == SDLK_LSHIFT) {
+          _cameraMotion.y = CAMERA_MOVEMENT_SPEED;
+        }
+      }
+      // Stop motion when releasing
+      else if (event.type == SDL_KEYUP) {
+        if (event.key.keysym.sym == SDLK_z || event.key.keysym.sym == SDLK_s) {
+          _cameraMotion.z = 0.0f;
+        } else if (event.key.keysym.sym == SDLK_q ||
+                   event.key.keysym.sym == SDLK_d) {
+          _cameraMotion.x = 0.0f;
+        } else if (event.key.keysym.sym == SDLK_SPACE ||
+                   event.key.keysym.sym == SDLK_LSHIFT) {
+          _cameraMotion.y = 0.0f;
         }
       }
     }
+
+    // Apply motions
+    _cameraPosition += static_cast<float>(_deltaTime) * _cameraMotion;
+    // Rotate monkey
+    _renderables[0].transformMatrix =
+        glm::rotate(_renderables[0].transformMatrix, glm::radians(1.0f),
+                    glm::vec3(0.0f, 1.f, 0.f));
 
     // Run the rendering code
     Draw();
@@ -697,8 +761,7 @@ void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first,
                                int32_t count) {
 
   // Camera position
-  glm::vec3 cameraPosition = {0.0f, -6.0f, -10.0f};
-  glm::mat4 view = glm::translate(glm::mat4(1.0f), cameraPosition);
+  glm::mat4 view = glm::translate(glm::mat4(1.0f), _cameraPosition);
   // Camera projection
   glm::mat4 projection = glm::perspective(
       glm::radians(70.f),
@@ -746,6 +809,9 @@ void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first,
   }
 }
 void VulkanEngine::InitScene() {
+  // Set camera spawn point
+  _cameraPosition = glm::vec3(3.f, 0.0f, 0.0f);
+
   // Create monkey render object
   Material *defaultMaterial = GetMaterial("default");
   RenderObject monkey{
@@ -754,6 +820,16 @@ void VulkanEngine::InitScene() {
       .transformMatrix = glm::mat4{1.0f},
   };
   _renderables.push_back(monkey);
+
+  Material *redMaterial = GetMaterial("red");
+  RenderObject redMonkey{
+      .mesh = GetMesh("monkey"),
+      .material = redMaterial,
+      .transformMatrix = glm::translate(glm::mat4{1.0f}, glm::vec3{3.0f, 0.f, 2.0f}),
+  };
+  _renderables.push_back(redMonkey);
+
+
 
   // Create triangles
   Mesh *triangleMesh = GetMesh("triangle");

@@ -10,6 +10,13 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+struct FrameData {
+  vk::Semaphore presentSemaphore, renderSemaphore;
+  vk::Fence renderFence;
+  vk::CommandPool commandPool;
+  vk::CommandBuffer mainCommandBuffer;
+};
+
 struct MeshPushConstants {
   glm::vec4 data;
   glm::mat4 render_matrix;
@@ -32,6 +39,8 @@ struct RenderObject {
   Material* material;
   glm::mat4 transformMatrix;
 };
+
+constexpr uint32_t FRAME_OVERLAP = 2;
 
 class VulkanEngine {
 private:
@@ -83,14 +92,11 @@ private:
   vk::Queue _graphicsQueue;
   /** Family of the graphics queue */
   uint32_t _graphicsQueueFamily;
-  /** Command pool used to record commands */
-  vk::CommandPool _commandPool;
-  /** Command buffer used to record commands into */
-  vk::CommandBuffer _mainCommandBuffer;
   /** Render pass */
   vk::RenderPass _renderPass;
   /** Framebuffers */
   std::vector<vk::Framebuffer> _framebuffers;
+  FrameData _frames[FRAME_OVERLAP];
 
   // == Scene ==
   std::vector<RenderObject> _renderables;
@@ -104,11 +110,6 @@ private:
   // Shader switching
   int32_t _selectedShader = 0;
 
-  // == SYNCHRONIZATION ==
-  vk::Semaphore _presentSemaphore;
-  vk::Semaphore _renderSemaphore;
-  vk::Fence _renderFence;
-
   // Methods
   void InitVulkan();
   void InitSwapchain();
@@ -121,6 +122,7 @@ private:
   void InitScene();
   void DrawObjects(vk::CommandBuffer cmd, RenderObject* first, int32_t count);
   vk::ShaderModule LoadShaderModule(const char *filePath);
+  FrameData& GetCurrentFrame();
 
   Material* CreateMaterial(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string& name);
   Material* GetMaterial(const std::string& name);

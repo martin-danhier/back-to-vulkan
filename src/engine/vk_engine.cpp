@@ -258,19 +258,22 @@ void VulkanEngine::InitCommands() {
       .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
       .queueFamilyIndex = _graphicsQueueFamily,
   };
-  _commandPool = _device.createCommandPool(commandPoolCreateInfo);
 
-  // Create a primary command buffer
-  vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
-      .commandPool = _commandPool,
-      .level = vk::CommandBufferLevel::ePrimary,
-      .commandBufferCount = 1,
-  };
-  _mainCommandBuffer =
-      _device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
-  // Register deletion
-  _mainDeletionQueue.PushFunction(
-      [=]() { _device.destroyCommandPool(_commandPool); });
+  for (auto &frame : _frames) {
+    frame.commandPool = _device.createCommandPool(commandPoolCreateInfo);
+
+    // Create a primary command buffer
+    vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
+        .commandPool = frame.commandPool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    };
+    frame.mainCommandBuffer =
+        _device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+    // Register deletion
+    _mainDeletionQueue.PushFunction(
+        [=]() { _device.destroyCommandPool(frame.commandPool); });
+  }
 }
 
 void VulkanEngine::InitDefaultRenderPass() {
@@ -384,19 +387,27 @@ void VulkanEngine::InitSyncStructures() {
   vk::FenceCreateInfo fenceCreateInfo{
       .flags = vk::FenceCreateFlagBits::eSignaled,
   };
-  _renderFence = _device.createFence(fenceCreateInfo);
-  // Register deletion
-  _mainDeletionQueue.PushFunction(
-      [=]() { _device.destroyFence(_renderFence); });
+  vk::SemaphoreCreateInfo semaphoreCreateInfo{};
 
-  // Create semaphores
-  _presentSemaphore = _device.createSemaphore({});
-  _renderSemaphore = _device.createSemaphore({});
-  // Register deletion
-  _mainDeletionQueue.PushFunction([=]() {
-    _device.destroySemaphore(_presentSemaphore);
-    _device.destroySemaphore(_renderSemaphore);
-  });
+  // For each frame, create sync structures
+  for (auto &frame : _frames) {
+    // Create fence
+    frame.renderFence = _device.createFence(fenceCreateInfo);
+
+    // Register deletion
+    _mainDeletionQueue.PushFunction(
+        [=]() { _device.destroyFence(frame.renderFence); });
+
+    // Create semaphores
+    frame.presentSemaphore = _device.createSemaphore(semaphoreCreateInfo);
+    frame.renderSemaphore = _device.createSemaphore(semaphoreCreateInfo);
+
+    // Register deletion
+    _mainDeletionQueue.PushFunction([=]() {
+      _device.destroySemaphore(frame.presentSemaphore);
+      _device.destroySemaphore(frame.renderSemaphore);
+    });
+  }
 }
 
 void VulkanEngine::InitPipelines() {
@@ -454,11 +465,13 @@ void VulkanEngine::InitPipelines() {
   // Destroy the shader modules as they are not needed anymore
   _device.destroyShaderModule(coloredTriangleFragShader);
   _device.destroyShaderModule(meshVertShader);
+  _device.destroyShaderModule(redTriangleFragShader);
 
   // Register deletion
   _mainDeletionQueue.PushFunction([=]() {
     // Destroy pipelines
     _device.destroyPipeline(meshPipeline);
+    _device.destroyPipeline(redMeshPipeline);
 
     // Destroy the layout
     _device.destroyPipelineLayout(meshPipelineLayout);
@@ -517,8 +530,12 @@ void VulkanEngine::LoadMeshes() {
 void VulkanEngine::Cleanup() {
   if (_isInitialized) {
 
-    // Wait until the GPU has stopped using the objects
-    _device.waitForFences(1, &_renderFence, true, 1000000000);
+    // Wait for all fences until the GPU has stopped using the objects
+    vk::Fence fences[FRAME_OVERLAP];
+    for (int i = 0; i < FRAME_OVERLAP; i++) {
+      fences[i] = _frames[i].renderFence;
+    }
+    _device.waitForFences(FRAME_OVERLAP, fences, true, 1000000000);
 
     _mainDeletionQueue.Flush();
 
@@ -540,15 +557,17 @@ void VulkanEngine::Cleanup() {
 void VulkanEngine::Draw() {
   // Wait until the GPU has finished rendering the last frame. Timeout of 1
   // second
-  auto waitResult = _device.waitForFences(_renderFence, true, 1000000000);
+  FrameData &currentFrame = GetCurrentFrame();
+
+  auto waitResult = _device.waitForFences(currentFrame.renderFence, true, 1000000000);
   if (waitResult != vk::Result::eSuccess)
     throw std::runtime_error("Error while waiting for fences");
-  _device.resetFences(_renderFence);
+  _device.resetFences(currentFrame.renderFence);
 
   // Request image index from swapchain
   uint32_t swapchainImageIndex;
   auto nextImageResult =
-      _device.acquireNextImageKHR(_swapchain, 1000000000, _presentSemaphore);
+      _device.acquireNextImageKHR(_swapchain, 1000000000, currentFrame.presentSemaphore);
   switch (nextImageResult.result) {
     // Success, keep it
   case vk::Result::eSuccess:
@@ -567,13 +586,13 @@ void VulkanEngine::Draw() {
   }
 
   // Reset the command buffer
-  _mainCommandBuffer.reset();
+  currentFrame.mainCommandBuffer.reset();
 
   // Begin the recording of commands into the buffer
   vk::CommandBufferBeginInfo cmdBeginInfo{
       .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
   };
-  _mainCommandBuffer.begin(cmdBeginInfo);
+  currentFrame.mainCommandBuffer.begin(cmdBeginInfo);
 
   // Define a clear color from frame number
   float flash = abs(sin(static_cast<float_t>(_frameNumber) / 120.f));
@@ -596,19 +615,19 @@ void VulkanEngine::Draw() {
       .clearValueCount = 2,
       .pClearValues = clearValues,
   };
-  _mainCommandBuffer.beginRenderPass(rpBeginInfo, vk::SubpassContents::eInline);
+  currentFrame.mainCommandBuffer.beginRenderPass(rpBeginInfo, vk::SubpassContents::eInline);
 
   // ==== Start Render code ====
 
   // Draw objects
-  DrawObjects(_mainCommandBuffer, _renderables.data(), _renderables.size());
+  DrawObjects(currentFrame.mainCommandBuffer, _renderables.data(), _renderables.size());
 
   // ==== End Render code ====
 
   // End the renderpass to finish rendering commands
-  _mainCommandBuffer.endRenderPass();
+  currentFrame.mainCommandBuffer.endRenderPass();
   // End the command buffer to finish it and prepare it to be submitted
-  _mainCommandBuffer.end();
+  currentFrame.mainCommandBuffer.end();
 
   vk::PipelineStageFlags waitStage =
       vk::PipelineStageFlagBits::eColorAttachmentOutput;
@@ -617,23 +636,23 @@ void VulkanEngine::Draw() {
   vk::SubmitInfo submitInfo{
       // Wait until the image to render to is ready
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &_presentSemaphore,
+      .pWaitSemaphores = &currentFrame.presentSemaphore,
       // Pipeline stage
       .pWaitDstStageMask = &waitStage,
       // Link the command buffer
       .commandBufferCount = 1,
-      .pCommandBuffers = &_mainCommandBuffer,
+      .pCommandBuffers = &currentFrame.mainCommandBuffer,
       // Signal the render semaphore
       .signalSemaphoreCount = 1,
-      .pSignalSemaphores = &_renderSemaphore,
+      .pSignalSemaphores = &currentFrame.renderSemaphore,
   };
-  _graphicsQueue.submit(submitInfo, _renderFence);
+  _graphicsQueue.submit(submitInfo, currentFrame.renderFence);
 
   // Present the image on the screen
   vk::PresentInfoKHR presentInfo{
       // Wait until the rendering is complete
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &_renderSemaphore,
+      .pWaitSemaphores = &currentFrame.renderSemaphore,
       // Specify the swapchain to present
       .swapchainCount = 1,
       .pSwapchains = &_swapchain,
@@ -825,11 +844,10 @@ void VulkanEngine::InitScene() {
   RenderObject redMonkey{
       .mesh = GetMesh("monkey"),
       .material = redMaterial,
-      .transformMatrix = glm::translate(glm::mat4{1.0f}, glm::vec3{3.0f, 0.f, 2.0f}),
+      .transformMatrix =
+          glm::translate(glm::mat4{1.0f}, glm::vec3{3.0f, 0.f, 2.0f}),
   };
   _renderables.push_back(redMonkey);
-
-
 
   // Create triangles
   Mesh *triangleMesh = GetMesh("triangle");
@@ -850,6 +868,9 @@ void VulkanEngine::InitScene() {
       _renderables.push_back(triangle);
     }
   }
+}
+FrameData &VulkanEngine::GetCurrentFrame() {
+  return _frames[_frameNumber % FRAME_OVERLAP];
 }
 
 // ===== PIPELINE BUILDER =====

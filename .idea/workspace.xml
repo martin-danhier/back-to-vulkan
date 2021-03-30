@@ -23,7 +23,6 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/shaders/triangle.frag" beforeDir="false" afterPath="$PROJECT_DIR$/shaders/triangle.frag" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.h" afterDir="false" />
     </list>
@@ -84,6 +83,11 @@
   </component>
   <component name="RunManager" selected="CMake Application.the_good_one">
     <configuration name="Shaders" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="Shaders" CONFIG_NAME="Debug-Visual Studio">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -181,7 +185,7 @@
       <workItem from="1617085401387" duration="3357000" />
       <workItem from="1617093733846" duration="288000" />
       <workItem from="1617094217622" duration="14429000" />
-      <workItem from="1617137034467" duration="1833000" />
+      <workItem from="1617137034467" duration="4053000" />
     </task>
     <servers />
   </component>

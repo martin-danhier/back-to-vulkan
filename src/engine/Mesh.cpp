@@ -32,7 +32,7 @@ void Mesh::Upload(VmaAllocator allocator, DeletionQueue &deletionQueue) {
   });
 
   // Copy vertex data
-  void *data;
+  void *data = nullptr;
   vmaMapMemory(allocator, _vertexBuffer.allocation, &data);
   memcpy(data, _vertices.data(), _vertices.size() * sizeof(Vertex));
   vmaUnmapMemory(allocator, _vertexBuffer.allocation);

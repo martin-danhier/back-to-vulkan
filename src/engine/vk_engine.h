@@ -6,8 +6,8 @@
 
 #include "Mesh.h"
 #include "vk_types.h"
-#include <glm/glm.hpp>
 #include <deque>
+#include <glm/glm.hpp>
 #include <vector>
 
 struct MeshPushConstants {
@@ -17,9 +17,20 @@ struct MeshPushConstants {
 
 class DeletionQueue {
   std::deque<std::function<void()>> _deletors;
+
 public:
-  void PushFunction(std::function<void()>&& ppFunction);
+  void PushFunction(std::function<void()> &&ppFunction);
   void Flush();
+};
+
+struct Material {
+  vk::Pipeline pipeline;
+  vk::PipelineLayout pipelineLayout;
+};
+struct RenderObject {
+  Mesh* mesh;
+  Material* material;
+  glm::mat4 transformMatrix;
 };
 
 class VulkanEngine {
@@ -80,14 +91,10 @@ private:
   /** Framebuffers */
   std::vector<vk::Framebuffer> _framebuffers;
 
-  // == test ==
-  vk::PipelineLayout _trianglePipelineLayout;
-  vk::Pipeline _trianglePipeline;
-  vk::Pipeline _coloredTrianglePipeline;
-  vk::PipelineLayout _meshPipelineLayout;
-  vk::Pipeline _meshPipeline;
-  Mesh _triangleMesh;
-  Mesh _monkeyMesh;
+  // == Scene ==
+  std::vector<RenderObject> _renderables;
+  std::unordered_map<std::string, Material> _materials;
+  std::unordered_map<std::string, Mesh> _meshes;
 
   // Shader switching
   int32_t _selectedShader = 0;
@@ -106,9 +113,13 @@ private:
   void InitSyncStructures();
   void InitPipelines();
   void LoadMeshes();
-  vk::ShaderModule LoadShaderModule(const char* filePath);
+  void InitScene();
+  void DrawObjects(vk::CommandBuffer cmd, RenderObject* first, int32_t count);
+  vk::ShaderModule LoadShaderModule(const char *filePath);
 
-
+  Material* CreateMaterial(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string& name);
+  Material* GetMaterial(const std::string& name);
+  Mesh* GetMesh(const std::string& name);
 public:
   /**
    * Initializes everything in the engine
@@ -155,17 +166,23 @@ private:
 #endif
 
 public:
-  PipelineBuilder AddShaderStage(vk::ShaderStageFlagBits stage, vk::ShaderModule shaderModule);
-  PipelineBuilder WithVertexInput(const VertexInputDescription& vertexInputDescription);
+  PipelineBuilder AddShaderStage(vk::ShaderStageFlagBits stage,
+                                 vk::ShaderModule shaderModule);
+  PipelineBuilder
+  WithVertexInput(const VertexInputDescription &vertexInputDescription);
   PipelineBuilder WithAssemblyTopology(vk::PrimitiveTopology topology);
   PipelineBuilder WithPolygonMode(vk::PolygonMode polygonMode);
   PipelineBuilder WithPipelineLayout(vk::PipelineLayout pipelineLayout);
-  PipelineBuilder WithScissors(int32_t xOffset, int32_t yOffset, vk::Extent2D extent);
-  PipelineBuilder WithDepthTestingSettings(bool doDepthTest, bool doDepthWrite, vk::CompareOp compareOp = vk::CompareOp::eAlways);
+  PipelineBuilder WithScissors(int32_t xOffset, int32_t yOffset,
+                               vk::Extent2D extent);
+  PipelineBuilder
+  WithDepthTestingSettings(bool doDepthTest, bool doDepthWrite,
+                           vk::CompareOp compareOp = vk::CompareOp::eAlways);
   PipelineBuilder WithScissors(vk::Rect2D scissors);
-  PipelineBuilder WithViewport(float_t x, float_t y, float_t width, float_t height, float_t minDepth, float_t maxDepth);
+  PipelineBuilder WithViewport(float_t x, float_t y, float_t width,
+                               float_t height, float_t minDepth,
+                               float_t maxDepth);
   PipelineBuilder WithViewport(vk::Viewport viewport);
   PipelineBuilder GetDefaultsForExtent(vk::Extent2D windowExtent);
   vk::Pipeline Build(vk::Device device, vk::RenderPass pass);
 };
-

@@ -54,6 +54,9 @@ void VulkanEngine::Init() {
   // Initialize meshes
   LoadMeshes();
 
+  // Initialize scene
+  InitScene();
+
   // Set the _isInitialized property to true if everything went fine
   _isInitialized = true;
 }
@@ -74,14 +77,28 @@ void VulkanEngine::InitVulkan() {
   // Enable validation layers and debug messenger in debug mode
   builder.request_validation_layers(true).use_default_debug_messenger();
 #endif
+
+  // Get required SDL extensions
+  uint32_t sdlRequiredExtensionsCount = 0;
+  SDL_Vulkan_GetInstanceExtensions(_window, &sdlRequiredExtensionsCount,
+                                   nullptr);
+  std::vector<const char *> sdlRequiredExtensions(sdlRequiredExtensionsCount);
+  SDL_Vulkan_GetInstanceExtensions(_window, &sdlRequiredExtensionsCount,
+                                   sdlRequiredExtensions.data());
+
   // Setup instance
-  auto vkbInstance = builder.set_app_name("Back to Vulkan")
-                         .set_app_version(0, 1, 0)
-                         .set_engine_name("MyEngine")
-                         .set_engine_version(0, 1, 0)
-                         .require_api_version(1, 1, 0)
-                         .build()
-                         .value();
+  auto vkbInstanceBuilder = builder.set_app_name("Back to Vulkan")
+                                .set_app_version(0, 1, 0)
+                                .set_engine_name("MyEngine")
+                                .set_engine_version(0, 1, 0)
+                                .require_api_version(1, 1, 0);
+  // Add sdl extensions
+  for (const char *ext : sdlRequiredExtensions) {
+    vkbInstanceBuilder.enable_extension(ext);
+  }
+
+  // Build instance
+  auto vkbInstance = vkbInstanceBuilder.build().value();
 
   // Wrap the instance and debug messenger in vk-hpp handle classes and store
   // them
@@ -200,40 +217,39 @@ void VulkanEngine::InitSwapchain() {
 
     // Store it
     _swapchainImageViews[i] = _device.createImageView(createInfo);
-
-    // Create depth image
-
-    vk::Extent3D depthImageExtent = {
-        _windowExtent.width,
-        _windowExtent.height,
-        1,
-    };
-    _depthImageFormat = vk::Format::eD32Sfloat;
-
-    // Allocate image
-    auto imageCreateInfo = vkinit::ImageCreateInfo(
-        _depthImageFormat, vk::ImageUsageFlagBits::eDepthStencilAttachment,
-        depthImageExtent);
-    VmaAllocationCreateInfo allocationCreateInfo{
-        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
-        .requiredFlags = static_cast<VkMemoryPropertyFlags>(
-            vk::MemoryPropertyFlagBits::eDeviceLocal),
-    };
-    vmaCreateImage(_allocator, (VkImageCreateInfo *)&imageCreateInfo,
-                   &allocationCreateInfo, (VkImage *)&_depthImage.image,
-                   &_depthImage.allocation, nullptr);
-
-    // Create image view for the depth image to use for rendering
-    auto imageViewCreateInfo = vkinit::ImageViewCreateInfo(
-        _depthImageFormat, _depthImage.image, vk::ImageAspectFlagBits::eDepth);
-    _depthImageView = _device.createImageView(imageViewCreateInfo);
-
-    // Register deletion
-    _mainDeletionQueue.PushFunction([=]() {
-      _device.destroyImageView(_depthImageView);
-      vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
-    });
   }
+
+  // Create depth image
+  vk::Extent3D depthImageExtent = {
+      _windowExtent.width,
+      _windowExtent.height,
+      1,
+  };
+  _depthImageFormat = vk::Format::eD32Sfloat;
+
+  // Allocate image
+  auto imageCreateInfo = vkinit::ImageCreateInfo(
+      _depthImageFormat, vk::ImageUsageFlagBits::eDepthStencilAttachment,
+      depthImageExtent);
+  VmaAllocationCreateInfo allocationCreateInfo{
+      .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+      .requiredFlags = static_cast<VkMemoryPropertyFlags>(
+          vk::MemoryPropertyFlagBits::eDeviceLocal),
+  };
+  vmaCreateImage(_allocator, (VkImageCreateInfo *)&imageCreateInfo,
+                 &allocationCreateInfo, (VkImage *)&_depthImage.image,
+                 &_depthImage.allocation, nullptr);
+
+  // Create image view for the depth image to use for rendering
+  auto imageViewCreateInfo = vkinit::ImageViewCreateInfo(
+      _depthImageFormat, _depthImage.image, vk::ImageAspectFlagBits::eDepth);
+  _depthImageView = _device.createImageView(imageViewCreateInfo);
+
+  // Register deletion
+  _mainDeletionQueue.PushFunction([=]() {
+    _device.destroyImageView(_depthImageView);
+    vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
+  });
 }
 
 void VulkanEngine::InitCommands() {
@@ -386,17 +402,15 @@ void VulkanEngine::InitSyncStructures() {
 void VulkanEngine::InitPipelines() {
 
   // Load shaders
-  auto triangleFragShader = LoadShaderModule("../shaders/triangle.frag.spv");
-  auto triangleVertShader = LoadShaderModule("../shaders/triangle.vert.spv");
   auto coloredTriangleFragShader =
       LoadShaderModule("../shaders/colored_triangle.frag.spv");
-  auto coloredTriangleVertShader =
-      LoadShaderModule("../shaders/colored_triangle.vert.spv");
   auto meshVertShader = LoadShaderModule("../shaders/tri_mesh.vert.spv");
 
-  // Create the mesh pipeline layout
+  // Create pipelines
+
   VertexInputDescription vertexDescription = Vertex::GetVertexDescription();
 
+  // Create the mesh pipeline layout
   auto meshPipelineLayoutCreateInfo = vkinit::PipelineLayoutCreateInfo();
   constexpr vk::PushConstantRange pushConstants{
       .stageFlags = vk::ShaderStageFlagBits::eVertex,
@@ -405,13 +419,13 @@ void VulkanEngine::InitPipelines() {
   };
   meshPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstants;
   meshPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-  _meshPipelineLayout =
+  auto meshPipelineLayout =
       _device.createPipelineLayout(meshPipelineLayoutCreateInfo);
 
   // Create the mesh pipeline
-  _meshPipeline =
+  auto meshPipeline =
       PipelineBuilder()
-          .WithPipelineLayout(_meshPipelineLayout)
+          .WithPipelineLayout(meshPipelineLayout)
           .GetDefaultsForExtent(_windowExtent)
           .AddShaderStage(vk::ShaderStageFlagBits::eVertex, meshVertShader)
           .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
@@ -420,50 +434,20 @@ void VulkanEngine::InitPipelines() {
           .WithDepthTestingSettings(true, true, vk::CompareOp::eLessOrEqual)
           .Build(_device, _renderPass);
 
-  // Create the trianglePipeline layout
-  auto pipelineLayoutCreateInfo = vkinit::PipelineLayoutCreateInfo();
-  _trianglePipelineLayout =
-      _device.createPipelineLayout(pipelineLayoutCreateInfo);
-
-  // Create the trianglePipeline
-  _trianglePipeline =
-      PipelineBuilder()
-          .WithPipelineLayout(_trianglePipelineLayout)
-          // Register shaders
-          .AddShaderStage(vk::ShaderStageFlagBits::eVertex, triangleVertShader)
-          .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
-                          triangleFragShader)
-          .GetDefaultsForExtent(_windowExtent)
-          .Build(_device, _renderPass);
-
-  // Create the colored pipeline
-  _coloredTrianglePipeline =
-      PipelineBuilder()
-          .WithPipelineLayout(_trianglePipelineLayout)
-          .AddShaderStage(vk::ShaderStageFlagBits::eVertex,
-                          coloredTriangleVertShader)
-          .AddShaderStage(vk::ShaderStageFlagBits::eFragment,
-                          coloredTriangleFragShader)
-          .GetDefaultsForExtent(_windowExtent)
-          .Build(_device, _renderPass);
+  // Save materials
+  CreateMaterial(meshPipeline, meshPipelineLayout, "default");
 
   // Destroy the shader modules as they are not needed anymore
-  _device.destroyShaderModule(triangleFragShader);
-  _device.destroyShaderModule(triangleVertShader);
   _device.destroyShaderModule(coloredTriangleFragShader);
-  _device.destroyShaderModule(coloredTriangleVertShader);
   _device.destroyShaderModule(meshVertShader);
 
   // Register deletion
   _mainDeletionQueue.PushFunction([=]() {
     // Destroy pipelines
-    _device.destroyPipeline(_trianglePipeline);
-    _device.destroyPipeline(_coloredTrianglePipeline);
-    _device.destroyPipeline(_meshPipeline);
+    _device.destroyPipeline(meshPipeline);
 
     // Destroy the layout
-    _device.destroyPipelineLayout(_meshPipelineLayout);
-    _device.destroyPipelineLayout(_trianglePipelineLayout);
+    _device.destroyPipelineLayout(meshPipelineLayout);
   });
 }
 
@@ -504,14 +488,16 @@ void VulkanEngine::LoadMeshes() {
   triangleVertices[0].color = {0.f, 1.0f, 0.f};
   triangleVertices[1].color = {0.f, 1.0f, 0.f};
   triangleVertices[2].color = {0.f, 1.0f, 0.f};
-  _triangleMesh = Mesh(triangleVertices);
+
+  _meshes["triangle"] = Mesh(triangleVertices);
+  Mesh *triangleMesh = GetMesh("triangle");
+  triangleMesh->Upload(_allocator, _mainDeletionQueue);
 
   // Load the monkey
-  _monkeyMesh.LoadFromObj("../assets/monkey_smooth.obj");
-
-  // Upload meshes
-  _triangleMesh.Upload(_allocator, _mainDeletionQueue);
-  _monkeyMesh.Upload(_allocator, _mainDeletionQueue);
+  _meshes["monkey"] = Mesh();
+  Mesh *monkeyMesh = GetMesh("monkey");
+  monkeyMesh->LoadFromObj("../assets/monkey_smooth.obj");
+  monkeyMesh->Upload(_allocator, _mainDeletionQueue);
 }
 
 void VulkanEngine::Cleanup() {
@@ -600,56 +586,8 @@ void VulkanEngine::Draw() {
 
   // ==== Start Render code ====
 
-  if (_selectedShader == 0) {
-    _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                    _trianglePipeline);
-    _mainCommandBuffer.draw(3, 1, 0, 0);
-
-  } else if (_selectedShader == 1) {
-    _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                    _coloredTrianglePipeline);
-    _mainCommandBuffer.draw(3, 1, 0, 0);
-  } else {
-    _mainCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                    _meshPipeline);
-    Mesh selectedMesh;
-    if (_selectedShader == 2)
-      selectedMesh = _triangleMesh;
-    else
-      selectedMesh = _monkeyMesh;
-
-    VkDeviceSize offset = 0;
-    vk::Buffer buffer = selectedMesh.GetVertexBuffer();
-    _mainCommandBuffer.bindVertexBuffers(0, 1, &buffer, &offset);
-
-    // make a model view matrix for rendering the object
-    // camera position
-    glm::vec3 camPos = {0.f, 0.f, -2.f};
-
-    glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
-    // camera projection
-    glm::mat4 projection =
-        glm::perspective(glm::radians(70.f), static_cast<float_t>(_windowExtent.width) / _windowExtent.height, 0.1f, 200.0f);
-    projection[1][1] *= -1;
-    // model rotation
-    glm::mat4 model =
-        glm::rotate(glm::mat4{1.0f},
-                    glm::radians(static_cast<float_t>(_frameNumber) * 0.4f),
-                    glm::vec3(0, 1, 0));
-
-    // calculate final mesh matrix
-    glm::mat4 mesh_matrix = projection * view * model;
-
-    MeshPushConstants constants{
-        .render_matrix = mesh_matrix,
-    };
-    _mainCommandBuffer.pushConstants(_meshPipelineLayout,
-                                     vk::ShaderStageFlagBits::eVertex, 0,
-                                     sizeof(MeshPushConstants), &constants);
-
-    // Draw
-    _mainCommandBuffer.draw(selectedMesh.GetVertexCount(), 1, 0, 0);
-  }
+  // Draw objects
+  DrawObjects(_mainCommandBuffer, _renderables.data(), _renderables.size());
 
   // ==== End Render code ====
 
@@ -720,6 +658,121 @@ void VulkanEngine::Run() {
 
     // Run the rendering code
     Draw();
+  }
+}
+
+Material *VulkanEngine::CreateMaterial(vk::Pipeline pipeline,
+                                       vk::PipelineLayout layout,
+                                       const std::string &name) {
+  Material mat{
+      .pipeline = pipeline,
+      .pipelineLayout = layout,
+  };
+  // Save it
+  _materials[name] = mat;
+  return &_materials[name];
+}
+
+Material *VulkanEngine::GetMaterial(const std::string &name) {
+  auto it = _materials.find(name);
+  // Return nullptr if the material does not exist
+  if (it == _materials.end()) {
+    return nullptr;
+  } else {
+    return &it->second;
+  }
+}
+
+Mesh *VulkanEngine::GetMesh(const std::string &name) {
+  auto it = _meshes.find(name);
+  // Return nullptr if the material does not exist
+  if (it == _meshes.end()) {
+    return nullptr;
+  } else {
+    return &it->second;
+  }
+}
+
+void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first,
+                               int32_t count) {
+
+  // Camera position
+  glm::vec3 cameraPosition = {0.0f, -6.0f, -10.0f};
+  glm::mat4 view = glm::translate(glm::mat4(1.0f), cameraPosition);
+  // Camera projection
+  glm::mat4 projection = glm::perspective(
+      glm::radians(70.f),
+      static_cast<float_t>(_windowExtent.width) / _windowExtent.height, 0.1f,
+      200.0f);
+  projection[1][1] *= -1;
+
+  // Render objects
+  Mesh *lastMesh = nullptr;
+  Material *lastMaterial = nullptr;
+
+  for (int i = 0; i < count; i++) {
+    RenderObject &object = first[i];
+
+    // Only bind pipeline if is it different from the already bound one
+    if (object.material != lastMaterial) {
+      cmd.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                       object.material->pipeline);
+      lastMaterial = object.material;
+    }
+
+    glm::mat4 model = object.transformMatrix;
+
+    // Compute render matrix
+    glm::mat4 renderMatrix = projection * view * model;
+
+    // Upload render matrix with push constants
+    MeshPushConstants constants{
+        .render_matrix = renderMatrix,
+    };
+    cmd.pushConstants(object.material->pipelineLayout,
+                      vk::ShaderStageFlagBits::eVertex, 0,
+                      sizeof(MeshPushConstants), &constants);
+
+    // Only bind mesh if it is different from the already bound one
+    if (object.mesh != lastMesh) {
+      VkDeviceSize offset = 0;
+      auto vertexBuffer = object.mesh->GetVertexBuffer();
+      cmd.bindVertexBuffers(0, 1, &vertexBuffer, &offset);
+      lastMesh = object.mesh;
+    }
+
+    // Draw
+    cmd.draw(object.mesh->GetVertexCount(), 1, 0, 0);
+  }
+}
+void VulkanEngine::InitScene() {
+  // Create monkey render object
+  Material *defaultMaterial = GetMaterial("default");
+  RenderObject monkey{
+      .mesh = GetMesh("monkey"),
+      .material = defaultMaterial,
+      .transformMatrix = glm::mat4{1.0f},
+  };
+  _renderables.push_back(monkey);
+
+  // Create triangles
+  Mesh *triangleMesh = GetMesh("triangle");
+  glm::mat4 scale = glm::scale(glm::mat4{1.0f}, glm::vec3(0.2, 0.2, 0.2));
+  for (int x = -20; x <= 20; x++) {
+    for (int y = -20; y <= 20; y++) {
+
+      // Create transform matrix
+      glm::mat4 translation =
+          glm::translate(glm::mat4{1.0f}, glm::vec3(x, 0, y));
+
+      // Create triangle render object
+      RenderObject triangle{
+          .mesh = triangleMesh,
+          .material = defaultMaterial,
+          .transformMatrix = translation * scale,
+      };
+      _renderables.push_back(triangle);
+    }
   }
 }
 

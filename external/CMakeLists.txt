@@ -9,13 +9,16 @@ find_path(sdl2_include_dir
         )
 find_path(sdl2_lib_dir
         NAMES libSDL2.so libSDL2main.so SDL2.dll SDL2main.dll
-        PATHS $ENV{SDL2_PATH}/lib /usr/lib/x86_64-linux-gnu/ ${sdl2_image_DIR}/lib
+        PATHS $ENV{SDL2_PATH}/lib /usr/lib/x86_64-linux-gnu/ ${sdl2_image_DIR}/lib /usr/lib64
         REQUIRED)
 
 target_include_directories(sdl2 INTERFACE ${sdl2_include_dir})
 target_link_directories(sdl2 INTERFACE ${sdl2_lib_dir})
 
-target_link_libraries(sdl2 INTERFACE SDL2 SDL2main)
+target_link_libraries(sdl2 INTERFACE SDL2)
+if (WIN32)
+        target_link_libraries(sdl2 INTERFACE SDL2main)
+endif()
 
 # === glm ===
 

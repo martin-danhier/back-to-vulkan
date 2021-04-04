@@ -129,7 +129,7 @@ public:
   PipelineBuilder WithPipelineLayout(vk::PipelineLayout pipelineLayout);
   PipelineBuilder WithScissors(int32_t xOffset, int32_t yOffset, vk::Extent2D extent);
   PipelineBuilder WithScissors(vk::Rect2D scissors);
-  PipelineBuilder WithViewport(float_t x, float_t y, float_t width, float_t height, float_t minDepth, float_t maxDepth);
+  PipelineBuilder WithViewport(float x, float y, float width, float height, float minDepth, float maxDepth);
   PipelineBuilder WithViewport(vk::Viewport viewport);
   PipelineBuilder GetDefaultsForExtent(vk::Extent2D windowExtent);
   vk::Pipeline Build(vk::Device device, vk::RenderPass pass);

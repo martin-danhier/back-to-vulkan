@@ -385,8 +385,8 @@ void VulkanEngine::Draw() {
   _mainCommandBuffer.begin(cmdBeginInfo);
 
   // Define a clear color from frame number
-  float flash = abs(sin(static_cast<float_t>(_frameNumber) / 120.f));
-  float flash2 = abs(sin(static_cast<float_t>(_frameNumber) / 180.f));
+  float flash = abs(sin(static_cast<float>(_frameNumber) / 120.f));
+  float flash2 = abs(sin(static_cast<float>(_frameNumber) / 180.f));
   vk::ClearValue clearValue(vkinit::GetColor(1 - flash, flash2, flash));
 
   // Start the main renderpass
@@ -649,10 +649,10 @@ PipelineBuilder PipelineBuilder::WithScissors(vk::Rect2D scissors) {
 
 // Viewport
 
-PipelineBuilder PipelineBuilder::WithViewport(float_t x, float_t y,
-                                              float_t width, float_t height,
-                                              float_t minDepth,
-                                              float_t maxDepth) {
+PipelineBuilder PipelineBuilder::WithViewport(float x, float y,
+                                              float width, float height,
+                                              float minDepth,
+                                              float maxDepth) {
 
   _viewport = vk::Viewport{
       .x = x,

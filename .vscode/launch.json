@@ -4,7 +4,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/the_good_one.exe",
+            "program": "${workspaceFolder}/bin/the_good_one",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

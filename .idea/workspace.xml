@@ -20,11 +20,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3f53b05-54ab-475c-a5c8-fcdd40b597dc" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -185,7 +182,7 @@
       <workItem from="1617085401387" duration="3357000" />
       <workItem from="1617093733846" duration="288000" />
       <workItem from="1617094217622" duration="14429000" />
-      <workItem from="1617137034467" duration="4053000" />
+      <workItem from="1617137034467" duration="4851000" />
     </task>
     <servers />
   </component>

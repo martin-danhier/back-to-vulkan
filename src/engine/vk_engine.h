@@ -4,8 +4,43 @@
 
 #pragma once
 
+#include "Mesh.h"
 #include "vk_types.h"
+#include <deque>
+#include <glm/glm.hpp>
 #include <vector>
+
+struct FrameData {
+  vk::Semaphore presentSemaphore, renderSemaphore;
+  vk::Fence renderFence;
+  vk::CommandPool commandPool;
+  vk::CommandBuffer mainCommandBuffer;
+};
+
+struct MeshPushConstants {
+  glm::vec4 data;
+  glm::mat4 render_matrix;
+};
+
+class DeletionQueue {
+  std::deque<std::function<void()>> _deletors;
+
+public:
+  void PushFunction(std::function<void()> &&ppFunction);
+  void Flush();
+};
+
+struct Material {
+  vk::Pipeline pipeline;
+  vk::PipelineLayout pipelineLayout;
+};
+struct RenderObject {
+  Mesh* mesh;
+  Material* material;
+  glm::mat4 transformMatrix;
+};
+
+constexpr uint32_t FRAME_OVERLAP = 2;
 
 class VulkanEngine {
 private:
@@ -17,6 +52,11 @@ private:
   bool _isInitialized{false};
   /** Index of the current frame */
   int _frameNumber{1};
+  double_t _deltaTime = 0;
+  /** Deletion queue handling object deletion */
+  DeletionQueue _mainDeletionQueue;
+  /** Memory allocator */
+  VmaAllocator _allocator;
 
   // == WINDOWING ==
 
@@ -41,31 +81,34 @@ private:
   vk::SwapchainKHR _swapchain;
   /** Image format expected by the windowing system */
   vk::Format _swapchainImageFormat;
+  vk::Format _depthImageFormat;
   /** Array of images from the swapchain */
   std::vector<vk::Image> _swapchainImages;
   /** Array of image views from the swapchain */
   std::vector<vk::ImageView> _swapchainImageViews;
+  AllocatedImage _depthImage;
+  vk::ImageView _depthImageView;
   /** Queue used for rendering */
   vk::Queue _graphicsQueue;
   /** Family of the graphics queue */
   uint32_t _graphicsQueueFamily;
-  /** Command pool used to record commands */
-  vk::CommandPool _commandPool;
-  /** Command buffer used to record commands into */
-  vk::CommandBuffer _mainCommandBuffer;
   /** Render pass */
   vk::RenderPass _renderPass;
   /** Framebuffers */
   std::vector<vk::Framebuffer> _framebuffers;
+  FrameData _frames[FRAME_OVERLAP];
 
-  // == test ==
-  vk::PipelineLayout _trianglePipelineLayout;
-  vk::Pipeline _trianglePipeline;
+  // == Scene ==
+  std::vector<RenderObject> _renderables;
+  std::unordered_map<std::string, Material> _materials;
+  std::unordered_map<std::string, Mesh> _meshes;
 
-  // == SYNCHRONIZATION ==
-  vk::Semaphore _presentSemaphore;
-  vk::Semaphore _renderSemaphore;
-  vk::Fence _renderFence;
+  // == Camera ==
+  glm::vec3 _cameraMotion {0.0f};
+  glm::vec3 _cameraPosition;
+
+  // Shader switching
+  int32_t _selectedShader = 0;
 
   // Methods
   void InitVulkan();
@@ -75,9 +118,15 @@ private:
   void InitFramebuffers();
   void InitSyncStructures();
   void InitPipelines();
-  vk::ShaderModule LoadShaderModule(const char* filePath);
+  void LoadMeshes();
+  void InitScene();
+  void DrawObjects(vk::CommandBuffer cmd, RenderObject* first, int32_t count);
+  vk::ShaderModule LoadShaderModule(const char *filePath);
+  FrameData& GetCurrentFrame();
 
-
+  Material* CreateMaterial(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string& name);
+  Material* GetMaterial(const std::string& name);
+  Mesh* GetMesh(const std::string& name);
 public:
   /**
    * Initializes everything in the engine
@@ -111,10 +160,12 @@ private:
   vk::PipelineColorBlendAttachmentState _colorBlendAttachment;
   vk::PipelineMultisampleStateCreateInfo _multisampling;
   vk::PipelineLayout _pipelineLayout;
+  vk::PipelineDepthStencilStateCreateInfo _depthStencilCreateInfo;
   // Booleans to store whether default should be applied or not
   bool _rasterizerInited = false;
   bool _inputAssemblyInited = false;
   bool _vertexInputInited = false;
+  bool _depthSettingsProvided = false;
 #ifndef NDEBUG
   bool _pipelineLayoutInited = false;
   bool _scissorsInited = false;
@@ -122,12 +173,18 @@ private:
 #endif
 
 public:
-  PipelineBuilder AddShaderStage(vk::ShaderStageFlagBits stage, vk::ShaderModule shaderModule);
-  PipelineBuilder WithVertexInput();
+  PipelineBuilder AddShaderStage(vk::ShaderStageFlagBits stage,
+                                 vk::ShaderModule shaderModule);
+  PipelineBuilder
+  WithVertexInput(const VertexInputDescription &vertexInputDescription);
   PipelineBuilder WithAssemblyTopology(vk::PrimitiveTopology topology);
   PipelineBuilder WithPolygonMode(vk::PolygonMode polygonMode);
   PipelineBuilder WithPipelineLayout(vk::PipelineLayout pipelineLayout);
-  PipelineBuilder WithScissors(int32_t xOffset, int32_t yOffset, vk::Extent2D extent);
+  PipelineBuilder WithScissors(int32_t xOffset, int32_t yOffset,
+                               vk::Extent2D extent);
+  PipelineBuilder
+  WithDepthTestingSettings(bool doDepthTest, bool doDepthWrite,
+                           vk::CompareOp compareOp = vk::CompareOp::eAlways);
   PipelineBuilder WithScissors(vk::Rect2D scissors);
   PipelineBuilder WithViewport(float x, float y, float width, float height, float minDepth, float maxDepth);
   PipelineBuilder WithViewport(vk::Viewport viewport);

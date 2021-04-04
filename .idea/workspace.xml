@@ -20,7 +20,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3f53b05-54ab-475c-a5c8-fcdd40b597dc" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/external/glm" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,7 +69,7 @@
     <property name="last_opened_file_path" value="$PROJECT_DIR$/assets" />
     <property name="nodejs_package_manager_path" value="npm" />
     <property name="restartRequiresConfirmation" value="false" />
-    <property name="settings.editor.selected.configurable" value="preferences.pathVariables" />
+    <property name="settings.editor.selected.configurable" value="preferences.keymap" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -79,6 +80,11 @@
   </component>
   <component name="RunManager" selected="CMake Application.the_good_one">
     <configuration name="Shaders" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="the_good_one" TARGET_NAME="Shaders" CONFIG_NAME="Debug-Visual Studio">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -165,7 +171,18 @@
       <workItem from="1616422999752" duration="20759000" />
       <workItem from="1616488760084" duration="10783000" />
       <workItem from="1616510051096" duration="1855000" />
-      <workItem from="1616589807448" duration="1352000" />
+      <workItem from="1616589807448" duration="2348000" />
+      <workItem from="1616604567514" duration="6622000" />
+      <workItem from="1616626038186" duration="599000" />
+      <workItem from="1616677375333" duration="1987000" />
+      <workItem from="1616959468800" duration="739000" />
+      <workItem from="1616962587044" duration="8239000" />
+      <workItem from="1617007056442" duration="12200000" />
+      <workItem from="1617048692481" duration="2817000" />
+      <workItem from="1617085401387" duration="3357000" />
+      <workItem from="1617093733846" duration="288000" />
+      <workItem from="1617094217622" duration="14429000" />
+      <workItem from="1617137034467" duration="4851000" />
     </task>
     <servers />
   </component>
@@ -196,6 +213,11 @@
           <url>file://$PROJECT_DIR$/external/vk-bootstrap/src/VkBootstrap.cpp</url>
           <line>1646</line>
           <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/src/engine/vk_engine.cpp</url>
+          <line>250</line>
+          <option name="timeStamp" value="15" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

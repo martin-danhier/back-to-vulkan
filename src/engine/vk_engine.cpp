@@ -80,11 +80,11 @@ void VulkanEngine::InitVulkan() {
 
   // Get required SDL extensions
   uint32_t sdlRequiredExtensionsCount = 0;
-  SDL_Vulkan_GetInstanceExtensions(_window, &sdlRequiredExtensionsCount,
-                                   nullptr);
+  if (!SDL_Vulkan_GetInstanceExtensions(_window, &sdlRequiredExtensionsCount,
+                                   nullptr)) HandleSDLError();
   std::vector<const char *> sdlRequiredExtensions(sdlRequiredExtensionsCount);
-  SDL_Vulkan_GetInstanceExtensions(_window, &sdlRequiredExtensionsCount,
-                                   sdlRequiredExtensions.data());
+  if (!SDL_Vulkan_GetInstanceExtensions(_window, &sdlRequiredExtensionsCount,
+                                   sdlRequiredExtensions.data())) HandleSDLError();
 
   // Setup instance
   auto vkbInstanceBuilder = builder.set_app_name("Back to Vulkan")
@@ -110,7 +110,8 @@ void VulkanEngine::InitVulkan() {
 
   // Get the surface of the SDL window
   VkSurfaceKHR surface;
-  SDL_Vulkan_CreateSurface(_window, _instance, &surface);
+  if (!SDL_Vulkan_CreateSurface(_window, _instance, &surface)) HandleSDLError();
+ 
   // Save it in the vk-hpp handle class
   _surface = vk::SurfaceKHR(surface);
 
@@ -170,6 +171,10 @@ void VulkanEngine::InitVulkan() {
   vmaCreateAllocator(&allocatorInfo, &_allocator);
 }
 
+void VulkanEngine::HandleSDLError() {
+  std::cerr << "[SDL Error]\n" << SDL_GetError() << '\n';
+}
+
 void VulkanEngine::InitSwapchain() {
   // Initialize swapchain with vkb
   vkb::SwapchainBuilder swapchainBuilder{_chosenGPU, _device, _surface};
@@ -190,12 +195,12 @@ void VulkanEngine::InitSwapchain() {
   _swapchainImageFormat = vk::Format(vkbSwapchain.image_format);
   // Register deletion
   _mainDeletionQueue.PushFunction(
-      [=]() { _device.destroySwapchainKHR(_swapchain); });
+      [this]() { _device.destroySwapchainKHR(_swapchain); });
 
   //   Get image views
   _swapchainImageViews.resize(_swapchainImages.size());
 
-  for (int i = 0; i < _swapchainImages.size(); i++) {
+  for (uint32_t i = 0; i < static_cast<uint32_t>(_swapchainImages.size()); i++) {
     vk::ImageViewCreateInfo createInfo{
         .image = _swapchainImages[i],
         .viewType = vk::ImageViewType::e2D,
@@ -246,7 +251,7 @@ void VulkanEngine::InitSwapchain() {
   _depthImageView = _device.createImageView(imageViewCreateInfo);
 
   // Register deletion
-  _mainDeletionQueue.PushFunction([=]() {
+  _mainDeletionQueue.PushFunction([this]() {
     _device.destroyImageView(_depthImageView);
     vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
   });
@@ -272,7 +277,7 @@ void VulkanEngine::InitCommands() {
         _device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
     // Register deletion
     _mainDeletionQueue.PushFunction(
-        [=]() { _device.destroyCommandPool(frame.commandPool); });
+        [this, frame]() { _device.destroyCommandPool(frame.commandPool); });
   }
 }
 
@@ -346,7 +351,7 @@ void VulkanEngine::InitDefaultRenderPass() {
 
   // Register deletion
   _mainDeletionQueue.PushFunction(
-      [=]() { _device.destroyRenderPass(_renderPass); });
+      [this]() { _device.destroyRenderPass(_renderPass); });
 }
 
 void VulkanEngine::InitFramebuffers() {
@@ -368,14 +373,14 @@ void VulkanEngine::InitFramebuffers() {
 
   // Init the framebuffers array
   _framebuffers = std::vector<vk::Framebuffer>(swapchainImageCount);
-  for (int i = 0; i < swapchainImageCount; ++i) {
+  for (uint32_t i = 0; i < swapchainImageCount; ++i) {
 
     // Link the corresponding image
     attachments[0] = _swapchainImageViews[i];
     // Create the framebuffer and store it in the array
     _framebuffers[i] = _device.createFramebuffer(framebufferCreateInfo);
     // Register deletion
-    _mainDeletionQueue.PushFunction([=]() {
+    _mainDeletionQueue.PushFunction([this, i]() {
       _device.destroyFramebuffer(_framebuffers[i]);
       _device.destroyImageView(_swapchainImageViews[i]);
     });
@@ -396,14 +401,14 @@ void VulkanEngine::InitSyncStructures() {
 
     // Register deletion
     _mainDeletionQueue.PushFunction(
-        [=]() { _device.destroyFence(frame.renderFence); });
+        [this, frame]() { _device.destroyFence(frame.renderFence); });
 
     // Create semaphores
     frame.presentSemaphore = _device.createSemaphore(semaphoreCreateInfo);
     frame.renderSemaphore = _device.createSemaphore(semaphoreCreateInfo);
 
     // Register deletion
-    _mainDeletionQueue.PushFunction([=]() {
+    _mainDeletionQueue.PushFunction([this, frame]() {
       _device.destroySemaphore(frame.presentSemaphore);
       _device.destroySemaphore(frame.renderSemaphore);
     });
@@ -468,7 +473,7 @@ void VulkanEngine::InitPipelines() {
   _device.destroyShaderModule(redTriangleFragShader);
 
   // Register deletion
-  _mainDeletionQueue.PushFunction([=]() {
+  _mainDeletionQueue.PushFunction([this, meshPipeline, redMeshPipeline, meshPipelineLayout]() {
     // Destroy pipelines
     _device.destroyPipeline(meshPipeline);
     _device.destroyPipeline(redMeshPipeline);
@@ -483,6 +488,8 @@ vk::ShaderModule VulkanEngine::LoadShaderModule(const char *filePath) {
   std::ifstream file(filePath, std::ios::ate | std::ios::binary);
 
   if (!file.is_open()) {
+    // Display error
+    std::cerr << strerror(errno) << '\n';
     throw std::runtime_error("Couldn't load shader " + std::string(filePath));
   }
   // Since the cursor is at the end, tellg gives the size of the file
@@ -532,7 +539,7 @@ void VulkanEngine::Cleanup() {
 
     // Wait for all fences until the GPU has stopped using the objects
     vk::Fence fences[FRAME_OVERLAP];
-    for (int i = 0; i < FRAME_OVERLAP; i++) {
+    for (uint32_t i = 0; i < FRAME_OVERLAP; i++) {
       fences[i] = _frames[i].renderFence;
     }
     _device.waitForFences(FRAME_OVERLAP, fences, true, 1000000000);
@@ -567,7 +574,7 @@ void VulkanEngine::Draw() {
   // Request image index from swapchain
   uint32_t swapchainImageIndex;
   auto nextImageResult =
-      _device.acquireNextImageKHR(_swapchain, 1000000000, currentFrame.presentSemaphore);
+      _device.acquireNextImageKHR(_swapchain, 1000000000, currentFrame.presentSemaphore, nullptr);
   switch (nextImageResult.result) {
     // Success, keep it
   case vk::Result::eSuccess:
@@ -586,7 +593,7 @@ void VulkanEngine::Draw() {
   }
 
   // Reset the command buffer
-  currentFrame.mainCommandBuffer.reset();
+  currentFrame.mainCommandBuffer.reset({});
 
   // Begin the recording of commands into the buffer
   vk::CommandBufferBeginInfo cmdBeginInfo{

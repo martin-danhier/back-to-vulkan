@@ -27,7 +27,7 @@ void Mesh::Upload(VmaAllocator allocator, DeletionQueue &deletionQueue) {
     throw std::runtime_error("Unable to create allocation for vertex buffer");
 
   // Register the deletion
-  deletionQueue.PushFunction([=]() {
+  deletionQueue.PushFunction([this, allocator]() {
     vmaDestroyBuffer(allocator, _vertexBuffer.buffer, _vertexBuffer.allocation);
   });
 

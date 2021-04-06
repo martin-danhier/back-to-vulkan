@@ -123,6 +123,7 @@ private:
   void DrawObjects(vk::CommandBuffer cmd, RenderObject* first, int32_t count);
   vk::ShaderModule LoadShaderModule(const char *filePath);
   FrameData& GetCurrentFrame();
+  void HandleSDLError();
 
   Material* CreateMaterial(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string& name);
   Material* GetMaterial(const std::string& name);

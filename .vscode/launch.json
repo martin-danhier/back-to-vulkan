@@ -7,11 +7,8 @@
             "program": "${workspaceFolder}/bin/the_good_one",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
+            "cwd": "${workspaceFolder}/bin",
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -19,7 +16,15 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build"
+            "linux": {
+                "environment": [
+                    {
+                        "name": "DISPLAY",
+                        "value": ":0",
+                    }
+                ],
+            },
+            "preLaunchTask": "Build Makefile"
         },
     ]
 }

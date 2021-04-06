@@ -4,9 +4,20 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build",
+            "label": "Build CMake",
             "type": "shell",
-            "command": "cmake -S . -B ./build -G Unix\\ Makefiles -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=./Toolchain.cmake && cd build && make && cd .."
+            "command": "cmake -S . -B ./build -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=./Toolchain.cmake",
+            "group": "build"
+        },
+        {
+            "label": "Build Makefile",
+            "type": "shell",
+            "command": "make",
+            "group": "build",
+            "dependsOn": ["Build CMake"],
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            }
         }
     ]
 }

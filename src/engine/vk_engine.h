@@ -10,11 +10,19 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+struct GPUCameraData {
+  glm::mat4 view;
+  glm::mat4 projection;
+  glm::mat4 viewProj;
+};
+
 struct FrameData {
   vk::Semaphore presentSemaphore, renderSemaphore;
   vk::Fence renderFence;
   vk::CommandPool commandPool;
   vk::CommandBuffer mainCommandBuffer;
+  AllocatedBuffer cameraBuffer;
+  vk::DescriptorSet globalDescriptor;
 };
 
 struct MeshPushConstants {
@@ -35,8 +43,8 @@ struct Material {
   vk::PipelineLayout pipelineLayout;
 };
 struct RenderObject {
-  Mesh* mesh;
-  Material* material;
+  Mesh *mesh;
+  Material *material;
   glm::mat4 transformMatrix;
 };
 
@@ -97,6 +105,9 @@ private:
   /** Framebuffers */
   std::vector<vk::Framebuffer> _framebuffers;
   FrameData _frames[FRAME_OVERLAP];
+  /* Descriptor sets */
+  vk::DescriptorSetLayout _globalSetLayout;
+  vk::DescriptorPool _descriptorPool;
 
   // == Scene ==
   std::vector<RenderObject> _renderables;
@@ -104,7 +115,7 @@ private:
   std::unordered_map<std::string, Mesh> _meshes;
 
   // == Camera ==
-  glm::vec3 _cameraMotion {0.0f};
+  glm::vec3 _cameraMotion{0.0f};
   glm::vec3 _cameraPosition;
 
   // Shader switching
@@ -115,19 +126,28 @@ private:
   void InitSwapchain();
   void InitCommands();
   void InitDefaultRenderPass();
+  void InitDescriptors();
   void InitFramebuffers();
   void InitSyncStructures();
   void InitPipelines();
   void LoadMeshes();
   void InitScene();
-  void DrawObjects(vk::CommandBuffer cmd, RenderObject* first, int32_t count);
+  void DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32_t count);
   vk::ShaderModule LoadShaderModule(const char *filePath);
-  FrameData& GetCurrentFrame();
+  FrameData &GetCurrentFrame();
   void HandleSDLError();
+  AllocatedBuffer CreateBuffer(size_t allocationSize,
+                               vk::BufferUsageFlags usageFlags,
+                               VmaMemoryUsage memoryUsage);
 
-  Material* CreateMaterial(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string& name);
-  Material* GetMaterial(const std::string& name);
-  Mesh* GetMesh(const std::string& name);
+  Material *CreateMaterial(vk::Pipeline pipeline, vk::PipelineLayout layout,
+                           const std::string &name);
+  Material *GetMaterial(const std::string &name);
+  Mesh *GetMesh(const std::string &name);
+
+  template <class T>
+  void CopyBufferToGPU(const T &data, const VmaAllocation &allocation);
+
 public:
   /**
    * Initializes everything in the engine
@@ -187,7 +207,8 @@ public:
   WithDepthTestingSettings(bool doDepthTest, bool doDepthWrite,
                            vk::CompareOp compareOp = vk::CompareOp::eAlways);
   PipelineBuilder WithScissors(vk::Rect2D scissors);
-  PipelineBuilder WithViewport(float x, float y, float width, float height, float minDepth, float maxDepth);
+  PipelineBuilder WithViewport(float x, float y, float width, float height,
+                               float minDepth, float maxDepth);
   PipelineBuilder WithViewport(vk::Viewport viewport);
   PipelineBuilder GetDefaultsForExtent(vk::Extent2D windowExtent);
   vk::Pipeline Build(vk::Device device, vk::RenderPass pass);

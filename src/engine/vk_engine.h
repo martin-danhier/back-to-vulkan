@@ -10,10 +10,22 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+struct GPUObjectData {
+  glm::mat4 modelMatrix;
+};
+
 struct GPUCameraData {
   glm::mat4 view;
   glm::mat4 projection;
   glm::mat4 viewProj;
+};
+
+struct GPUSceneData {
+  glm::vec4 fogColor; // w is for exponent
+	glm::vec4 fogDistances; //x for min, y for max, zw unused.
+	glm::vec4 ambientColor;
+	glm::vec4 sunlightDirection; //w for sun power
+	glm::vec4 sunlightColor;
 };
 
 struct FrameData {
@@ -22,7 +34,9 @@ struct FrameData {
   vk::CommandPool commandPool;
   vk::CommandBuffer mainCommandBuffer;
   AllocatedBuffer cameraBuffer;
+  AllocatedBuffer objectBuffer;
   vk::DescriptorSet globalDescriptor;
+  vk::DescriptorSet objectDescriptor;
 };
 
 struct MeshPushConstants {
@@ -83,6 +97,7 @@ private:
   vk::DebugUtilsMessengerEXT _debugMessenger;
   /** GPU chosen as the default device */
   vk::PhysicalDevice _chosenGPU;
+  vk::PhysicalDeviceProperties _gpuProperties;
   /** Vulkan device for commands */
   vk::Device _device;
   /** Swapchain to render to the surface */
@@ -107,12 +122,15 @@ private:
   FrameData _frames[FRAME_OVERLAP];
   /* Descriptor sets */
   vk::DescriptorSetLayout _globalSetLayout;
+  vk::DescriptorSetLayout _objectSetLayout;
   vk::DescriptorPool _descriptorPool;
 
   // == Scene ==
   std::vector<RenderObject> _renderables;
   std::unordered_map<std::string, Material> _materials;
   std::unordered_map<std::string, Mesh> _meshes;
+  GPUSceneData _sceneData;
+  AllocatedBuffer _sceneDataBuffer;
 
   // == Camera ==
   glm::vec3 _cameraMotion{0.0f};
@@ -146,7 +164,8 @@ private:
   Mesh *GetMesh(const std::string &name);
 
   template <class T>
-  void CopyBufferToGPU(const T &data, const VmaAllocation &allocation);
+  void CopyBufferToGPU(const T &data, const VmaAllocation &allocation, bool applyPadding = false);
+  size_t PadUniformBufferSize(size_t originalSize);
 
 public:
   /**
@@ -213,3 +232,4 @@ public:
   PipelineBuilder GetDefaultsForExtent(vk::Extent2D windowExtent);
   vk::Pipeline Build(vk::Device device, vk::RenderPass pass);
 };
+

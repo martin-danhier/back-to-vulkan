@@ -78,7 +78,7 @@ private:
   /** Deletion queue handling object deletion */
   DeletionQueue _mainDeletionQueue;
   /** Memory allocator */
-  VmaAllocator _allocator;
+  VmaAllocator _allocator = nullptr;
 
   // == WINDOWING ==
 
@@ -87,16 +87,16 @@ private:
   /** The main window */
   struct SDL_Window *_window{nullptr};
   /** Vulkan window surface */
-  vk::SurfaceKHR _surface;
+  vk::SurfaceKHR _surface = nullptr;
 
   // == VULKAN CORE RENDERING ==
 
   /** Vulkan library handle */
-  vk::Instance _instance;
+  vk::Instance _instance = nullptr;
   /** Vulkan debug output handle */
-  vk::DebugUtilsMessengerEXT _debugMessenger;
+  vk::DebugUtilsMessengerEXT _debugMessenger = nullptr;
   /** GPU chosen as the default device */
-  vk::PhysicalDevice _chosenGPU;
+  vk::PhysicalDevice _chosenGPU = nullptr;
   vk::PhysicalDeviceProperties _gpuProperties;
   /** Vulkan device for commands */
   vk::Device _device;
@@ -110,9 +110,9 @@ private:
   /** Array of image views from the swapchain */
   std::vector<vk::ImageView> _swapchainImageViews;
   AllocatedImage _depthImage;
-  vk::ImageView _depthImageView;
+  vk::ImageView _depthImageView = nullptr;
   /** Queue used for rendering */
-  vk::Queue _graphicsQueue;
+  vk::Queue _graphicsQueue = nullptr;
   /** Family of the graphics queue */
   uint32_t _graphicsQueueFamily;
   /** Render pass */
@@ -123,7 +123,7 @@ private:
   /* Descriptor sets */
   vk::DescriptorSetLayout _globalSetLayout;
   vk::DescriptorSetLayout _objectSetLayout;
-  vk::DescriptorPool _descriptorPool;
+  vk::DescriptorPool _descriptorPool = nullptr;
 
   // == Scene ==
   std::vector<RenderObject> _renderables;
@@ -153,7 +153,7 @@ private:
   void DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32_t count);
   vk::ShaderModule LoadShaderModule(const char *filePath);
   FrameData &GetCurrentFrame();
-  void HandleSDLError();
+  static void HandleSDLError();
   AllocatedBuffer CreateBuffer(size_t allocationSize,
                                vk::BufferUsageFlags usageFlags,
                                VmaMemoryUsage memoryUsage);
@@ -165,7 +165,7 @@ private:
 
   template <class T>
   void CopyBufferToGPU(const T &data, const VmaAllocation &allocation, bool applyPadding = false);
-  size_t PadUniformBufferSize(size_t originalSize);
+  size_t PadUniformBufferSize(size_t originalSize) const;
 
 public:
   /**

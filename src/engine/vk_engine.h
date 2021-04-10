@@ -33,9 +33,7 @@ struct FrameData {
   vk::Fence renderFence;
   vk::CommandPool commandPool;
   vk::CommandBuffer mainCommandBuffer;
-  AllocatedBuffer cameraBuffer;
   AllocatedBuffer objectBuffer;
-  vk::DescriptorSet globalDescriptor;
   vk::DescriptorSet objectDescriptor;
 };
 
@@ -122,6 +120,7 @@ private:
   FrameData _frames[FRAME_OVERLAP];
   /* Descriptor sets */
   vk::DescriptorSetLayout _globalSetLayout;
+  vk::DescriptorSet _globalDescriptor;
   vk::DescriptorSetLayout _objectSetLayout;
   vk::DescriptorPool _descriptorPool = nullptr;
 
@@ -131,6 +130,7 @@ private:
   std::unordered_map<std::string, Mesh> _meshes;
   GPUSceneData _sceneData;
   AllocatedBuffer _sceneDataBuffer;
+  AllocatedBuffer _cameraBuffer;
 
   // == Camera ==
   glm::vec3 _cameraMotion{0.0f};

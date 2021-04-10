@@ -20,16 +20,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3f53b05-54ab-475c-a5c8-fcdd40b597dc" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.clang-format" beforeDir="false" afterPath="$PROJECT_DIR$/.clang-format" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/external/tinyobjloader" beforeDir="false" afterPath="$PROJECT_DIR$/external/tinyobjloader" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/shaders/tri_mesh.vert" beforeDir="false" afterPath="$PROJECT_DIR$/shaders/tri_mesh.vert" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/engine/vk_init.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_init.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/engine/vk_init.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_init.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -193,7 +188,7 @@
       <workItem from="1617137034467" duration="4851000" />
       <workItem from="1617495714654" duration="403000" />
       <workItem from="1617994399752" duration="196000" />
-      <workItem from="1618044780981" duration="7674000" />
+      <workItem from="1618044780981" duration="8894000" />
     </task>
     <servers />
   </component>

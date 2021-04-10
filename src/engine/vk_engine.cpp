@@ -411,7 +411,7 @@ void VulkanEngine::InitDescriptors() {
   // Init layouts
   auto globalSetLayout =
       vkinit::DescriptorSetLayoutBuilder()
-          .AddBinding(vk::ShaderStageFlagBits::eVertex, vk::DescriptorType::eUniformBuffer)
+          .AddBinding(vk::ShaderStageFlagBits::eVertex, vk::DescriptorType::eUniformBufferDynamic)
           .AddBinding(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
                       vk::DescriptorType::eUniformBufferDynamic)
           .Build(_device, _mainDeletionQueue);
@@ -441,11 +441,20 @@ void VulkanEngine::InitDescriptors() {
   const size_t sceneParamBufferSize = FRAME_OVERLAP * PadUniformBufferSize(sizeof(GPUSceneData));
   _sceneDataBuffer = CreateBuffer(sceneParamBufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
                                   VMA_MEMORY_USAGE_CPU_TO_GPU);
+  // Init camera buffers
+  const size_t cameraBufferSize = FRAME_OVERLAP * PadUniformBufferSize(sizeof(GPUCameraData));
+  _cameraBuffer = CreateBuffer(cameraBufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
+                                    VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+  // Allocate and write
+  vkinit::DescriptorSetAllocator(_descriptorPool)
+      .AddSetWithLayout(globalSetLayout, &_globalDescriptor)
+      .Allocate(_device)
+      .AddBuffer(0, 0, _cameraBuffer.buffer, sizeof(GPUCameraData))
+      .AddBuffer(0, 1, _sceneDataBuffer.buffer, sizeof(GPUSceneData))
+      .Write(_device);
 
   for (auto &frame : _frames) {
-    // Init camera buffers
-    frame.cameraBuffer = CreateBuffer(sizeof(GPUCameraData), vk::BufferUsageFlagBits::eUniformBuffer,
-                                      VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     // Init object buffers
     const uint32_t MAX_OBJECTS = 10000;
@@ -455,14 +464,10 @@ void VulkanEngine::InitDescriptors() {
     // Allocate descriptor sets
     vkinit::DescriptorSetAllocator(_descriptorPool)
         // Allocate sets
-        .AddSetWithLayout(globalSetLayout, &frame.globalDescriptor)
         .AddSetWithLayout(objectSetLayout, &frame.objectDescriptor)
         .Allocate(_device)
-        // Link with buffers for global set
-        .AddBuffer(0, 0, frame.cameraBuffer.buffer, sizeof(GPUCameraData))
-        .AddBuffer(0, 1, _sceneDataBuffer.buffer, sizeof(GPUSceneData))
         // Link with buffers for object set
-        .AddBuffer(1, 0, frame.objectBuffer.buffer, sizeof(GPUObjectData) * MAX_OBJECTS)
+        .AddBuffer(0, 0, frame.objectBuffer.buffer, sizeof(GPUObjectData) * MAX_OBJECTS)
         .Write(_device);
   }
 }
@@ -869,7 +874,7 @@ void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32
       .viewProj = projection * view,
   };
   // Copy it to buffer
-  CopyBufferToGPU(camData, GetCurrentFrame().cameraBuffer.allocation);
+  CopyBufferToGPU(camData, _cameraBuffer.allocation, true);
 
   // Set scene parameters
   _sceneData.ambientColor = glm::vec4(0.6f, 0.4f, 0.2f, 1.0f);
@@ -896,9 +901,12 @@ void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32
       cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, object.material->pipeline);
 
       // Bind descriptor sets
-      std::vector<vk::DescriptorSet> sets = {frame.globalDescriptor, frame.objectDescriptor};
+      std::vector<vk::DescriptorSet> sets = {_globalDescriptor, frame.objectDescriptor};
       std::vector<uint32_t> uniformOffsets = {
-          static_cast<unsigned int>(PadUniformBufferSize(sizeof(GPUSceneData)) * frameIndex)};
+          // offset for camera data
+          static_cast<uint32_t>(PadUniformBufferSize(sizeof(GPUCameraData)) * frameIndex),
+          // offset for scene data
+          static_cast<uint32_t>(PadUniformBufferSize(sizeof(GPUSceneData)) * frameIndex)};
       cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, object.material->pipelineLayout, 0, sets,
                              uniformOffsets);
       lastMaterial = object.material;

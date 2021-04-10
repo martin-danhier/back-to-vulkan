@@ -1,7 +1,9 @@
-#version 450
+#version 460
 
 layout (location = 0) in vec3 inColor;
+layout (location = 1) flat in uint inObjectIndex;
 layout (location = 0) out vec4 outFragColor;
+
 
 layout(set = 0, binding = 1) uniform  SceneData{   
     vec4 fogColor; // w is for exponent
@@ -11,6 +13,14 @@ layout(set = 0, binding = 1) uniform  SceneData{
 	vec4 sunlightColor;
 } sceneData;
 
+// Object color
+struct ObjectColor {
+	vec4 albedo;
+};
+layout (std140, set = 1, binding = 1) readonly buffer ObjectColorBuffer {
+	ObjectColor objects[];
+} objectColorBuffer;
+
 void main() {
-    outFragColor = vec4(inColor * sceneData.ambientColor.xyz, 1.0);
+    outFragColor = vec4(inColor * sceneData.ambientColor.xyz, 1.0) * objectColorBuffer.objects[inObjectIndex].albedo;
 }

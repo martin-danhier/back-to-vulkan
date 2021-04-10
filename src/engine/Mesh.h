@@ -30,8 +30,10 @@ private:
 public:
   Mesh() = default;
   explicit Mesh(std::vector<Vertex>& vertices);
+  [[nodiscard]] std::vector<Vertex> GetVertices() const;
   bool LoadFromObj(const char* filename);
-  [[nodiscard]] vk::Buffer GetVertexBuffer() const;
+  [[nodiscard]] vk::Buffer &GetVertexBuffer();
   [[nodiscard]] size_t GetVertexCount() const;
+  [[nodiscard]] VmaAllocation &GetAllocation();
   void Upload(VmaAllocator allocator, class DeletionQueue& deletionQueue);
 };

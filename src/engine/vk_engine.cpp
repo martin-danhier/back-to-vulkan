@@ -272,6 +272,10 @@ void VulkanEngine::InitCommands() {
     // Register deletion
     _mainDeletionQueue.PushFunction([this, frame]() { _device.destroyCommandPool(frame.commandPool); });
   }
+
+  // Init upload context
+  _uploadContext.commandPool = _device.createCommandPool(commandPoolCreateInfo);
+  _mainDeletionQueue.PushFunction([this]() { _device.destroyCommandPool(_uploadContext.commandPool); });
 }
 
 void VulkanEngine::InitDefaultRenderPass() {
@@ -404,6 +408,10 @@ void VulkanEngine::InitSyncStructures() {
       _device.destroySemaphore(frame.renderSemaphore);
     });
   }
+
+  // Init upload context
+  _uploadContext.uploadFence = _device.createFence(vk::FenceCreateInfo{});
+  _mainDeletionQueue.PushFunction([this]() { _device.destroyFence(_uploadContext.uploadFence); });
 }
 
 void VulkanEngine::InitDescriptors() {
@@ -416,9 +424,11 @@ void VulkanEngine::InitDescriptors() {
                       vk::DescriptorType::eUniformBufferDynamic)
           .Build(_device, _mainDeletionQueue);
   _globalSetLayout = globalSetLayout.layout;
-  auto objectSetLayout = vkinit::DescriptorSetLayoutBuilder()
-                             .AddBinding(vk::ShaderStageFlagBits::eVertex, vk::DescriptorType::eStorageBuffer)
-                             .Build(_device, _mainDeletionQueue);
+  auto objectSetLayout =
+      vkinit::DescriptorSetLayoutBuilder()
+          .AddBinding(vk::ShaderStageFlagBits::eVertex, vk::DescriptorType::eStorageBuffer)
+          .AddBinding(vk::ShaderStageFlagBits::eFragment, vk::DescriptorType::eStorageBuffer)
+          .Build(_device, _mainDeletionQueue);
   _objectSetLayout = objectSetLayout.layout;
 
   // Create the descriptor pool
@@ -443,8 +453,8 @@ void VulkanEngine::InitDescriptors() {
                                   VMA_MEMORY_USAGE_CPU_TO_GPU);
   // Init camera buffers
   const size_t cameraBufferSize = FRAME_OVERLAP * PadUniformBufferSize(sizeof(GPUCameraData));
-  _cameraBuffer = CreateBuffer(cameraBufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
-                                    VMA_MEMORY_USAGE_CPU_TO_GPU);
+  _cameraBuffer =
+      CreateBuffer(cameraBufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
   // Allocate and write
   vkinit::DescriptorSetAllocator(_descriptorPool)
@@ -460,6 +470,9 @@ void VulkanEngine::InitDescriptors() {
     const uint32_t MAX_OBJECTS = 10000;
     frame.objectBuffer = CreateBuffer(sizeof(GPUObjectData) * MAX_OBJECTS,
                                       vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    frame.objectColorBuffer =
+        CreateBuffer(sizeof(ObjectColor) * MAX_OBJECTS, vk::BufferUsageFlagBits::eStorageBuffer,
+                     VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     // Allocate descriptor sets
     vkinit::DescriptorSetAllocator(_descriptorPool)
@@ -468,6 +481,7 @@ void VulkanEngine::InitDescriptors() {
         .Allocate(_device)
         // Link with buffers for object set
         .AddBuffer(0, 0, frame.objectBuffer.buffer, sizeof(GPUObjectData) * MAX_OBJECTS)
+        .AddBuffer(0, 1, frame.objectColorBuffer.buffer, sizeof(ObjectColor) * MAX_OBJECTS)
         .Write(_device);
   }
 }
@@ -573,19 +587,19 @@ void VulkanEngine::LoadMeshes() {
   triangleVertices[1].position = {-1.f, 1.f, 0.f};
   triangleVertices[2].position = {01.f, -1.f, 0.f};
   // Triangle colors, all green
-  triangleVertices[0].color = {0.f, 1.0f, 0.f};
-  triangleVertices[1].color = {0.f, 1.0f, 0.f};
-  triangleVertices[2].color = {0.f, 1.0f, 0.f};
+  triangleVertices[0].color = {1.f, 1.0f, 1.f};
+  triangleVertices[1].color = {1.f, 1.0f, 1.f};
+  triangleVertices[2].color = {1.f, 1.0f, 1.f};
 
   _meshes["triangle"] = Mesh(triangleVertices);
   Mesh *triangleMesh = GetMesh("triangle");
-  triangleMesh->Upload(_allocator, _mainDeletionQueue);
+  UploadMesh(*triangleMesh);
 
   // Load the monkey
   _meshes["monkey"] = Mesh();
   Mesh *monkeyMesh = GetMesh("monkey");
   monkeyMesh->LoadFromObj("../assets/monkey_smooth.obj");
-  monkeyMesh->Upload(_allocator, _mainDeletionQueue);
+  UploadMesh(*monkeyMesh);
 }
 
 void VulkanEngine::Cleanup() {
@@ -874,11 +888,11 @@ void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32
       .viewProj = projection * view,
   };
   // Copy it to buffer
-  CopyBufferToGPU(camData, _cameraBuffer.allocation, true);
+  CopyBufferToAllocation(&camData, _cameraBuffer.allocation, true);
 
   // Set scene parameters
   _sceneData.ambientColor = glm::vec4(0.6f, 0.4f, 0.2f, 1.0f);
-  CopyBufferToGPU(_sceneData, _sceneDataBuffer.allocation, true);
+  CopyBufferToAllocation(&_sceneData, _sceneDataBuffer.allocation, true);
 
   // Render objects
   Mesh *lastMesh = nullptr;
@@ -886,11 +900,15 @@ void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32
 
   // Copy object buffer
   GPUObjectData *objectSSBO;
+  ObjectColor *objectColorSSBO;
+  vmaMapMemory(_allocator, frame.objectColorBuffer.allocation, (void **)&objectColorSSBO);
   vmaMapMemory(_allocator, frame.objectBuffer.allocation, (void **)&objectSSBO);
   for (uint32_t i = 0; i < count; i++) {
     RenderObject &object = first[i];
     objectSSBO[i].modelMatrix = object.transformMatrix;
+    objectColorSSBO[i].albedo = object.albedo;
   }
+  vmaUnmapMemory(_allocator, frame.objectColorBuffer.allocation);
   vmaUnmapMemory(_allocator, frame.objectBuffer.allocation);
 
   for (uint32_t i = 0; i < count; i++) {
@@ -933,17 +951,17 @@ void VulkanEngine::DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32
 }
 
 template <class T>
-void VulkanEngine::CopyBufferToGPU(const T &src, const VmaAllocation &allocation, bool applyPadding) {
+void VulkanEngine::CopyBufferToAllocation(const T *src, const VmaAllocation &allocation, bool applyPadding, size_t size) {
   char *data = nullptr;
   // Map memory
   vmaMapMemory(_allocator, allocation, (void **)&data);
   // Apply padding if needed
   if (applyPadding) {
     uint32_t frameIndex = _frameNumber % FRAME_OVERLAP;
-    data += PadUniformBufferSize(sizeof(T)) * frameIndex;
+    data += PadUniformBufferSize(size) * frameIndex;
   }
   // Copy data to it
-  memcpy(data, &src, sizeof(T));
+  memcpy(data, src, size);
   // Unmap memory
   vmaUnmapMemory(_allocator, allocation);
 }
@@ -967,6 +985,7 @@ void VulkanEngine::InitScene() {
       .mesh = GetMesh("monkey"),
       .material = defaultMaterial,
       .transformMatrix = glm::mat4{1.0f},
+      .albedo = glm::vec4(1.0f),
   };
   _renderables.push_back(monkey);
 
@@ -975,6 +994,7 @@ void VulkanEngine::InitScene() {
       .mesh = GetMesh("monkey"),
       .material = redMaterial,
       .transformMatrix = glm::translate(glm::mat4{1.0f}, glm::vec3{3.0f, 0.f, 2.0f}),
+      .albedo = glm::vec4(1.0f),
   };
   _renderables.push_back(redMonkey);
 
@@ -992,12 +1012,95 @@ void VulkanEngine::InitScene() {
           .mesh = triangleMesh,
           .material = defaultMaterial,
           .transformMatrix = translation * scale,
+          .albedo =
+              glm::vec4{static_cast<float>(x + 20) / 40.f, static_cast<float>(y + 20) / 40.f, 0.1f, 1.0f},
       };
       _renderables.push_back(triangle);
     }
   }
 }
 FrameData &VulkanEngine::GetCurrentFrame() { return _frames[_frameNumber % FRAME_OVERLAP]; }
+
+void VulkanEngine::ImmediateSubmit(std::function<void(vk::CommandBuffer)> &&function) {
+  // Allocate default command buffer for instant commands
+  vk::CommandBufferAllocateInfo cmdAllocInfo{
+      .commandPool = _uploadContext.commandPool,
+      .level = vk::CommandBufferLevel::ePrimary,
+      .commandBufferCount = 1,
+  };
+  auto cmd = _device.allocateCommandBuffers(cmdAllocInfo)[0];
+
+  // Begin command buffer recording
+  vk::CommandBufferBeginInfo cmdBeginInfo{
+      .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+  };
+  // Record commands
+  cmd.begin(cmdBeginInfo);
+
+  // Execute function
+  function(cmd);
+
+  cmd.end();
+
+  // Submit
+  vk::SubmitInfo submit{
+      .commandBufferCount = 1,
+      .pCommandBuffers = &cmd,
+  };
+  _graphicsQueue.submit(1, &submit, _uploadContext.uploadFence);
+
+  // Wait fences
+  _device.waitForFences(1, &_uploadContext.uploadFence, true, 9999999999);
+  _device.resetFences(1, &_uploadContext.uploadFence);
+  // Clear command pool
+  _device.resetCommandPool(_uploadContext.commandPool);
+}
+
+void VulkanEngine::UploadMesh(Mesh &mesh) {
+  const size_t bufferSize = mesh.GetVertexCount() * sizeof(Vertex);
+  // Allocate staging vertexBuffer
+  vk::BufferCreateInfo stagingBufferInfo{
+      .size = bufferSize,
+      .usage = vk::BufferUsageFlagBits::eTransferSrc,
+  };
+  VmaAllocationCreateInfo vmaAllocInfo{
+      .usage = VMA_MEMORY_USAGE_CPU_ONLY,
+  };
+  AllocatedBuffer stagingBuffer;
+  vmaCreateBuffer(_allocator, (VkBufferCreateInfo *)&stagingBufferInfo, &vmaAllocInfo,
+                  (VkBuffer *)&stagingBuffer.buffer, &stagingBuffer.allocation, nullptr);
+
+  // Copy data to this vertexBuffer
+  auto vertices = mesh.GetVertices();
+  CopyBufferToAllocation(vertices.data(), stagingBuffer.allocation, false, bufferSize);
+
+  // Allocate vertex vertexBuffer
+  vk::BufferCreateInfo vertexBufferInfo {
+      .size = bufferSize,
+      .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+  };
+  vmaAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+  vk::Buffer &vertexBuffer = mesh.GetVertexBuffer();
+  VmaAllocation &allocation = mesh.GetAllocation();
+  vmaCreateBuffer(_allocator, (VkBufferCreateInfo*) &vertexBufferInfo, &vmaAllocInfo, (VkBuffer*) &vertexBuffer, &allocation, nullptr);
+
+  // Copy from staging vertexBuffer to vertex vertexBuffer
+  ImmediateSubmit([bufferSize, stagingBuffer, vertexBuffer](vk::CommandBuffer cmd) {
+    vk::BufferCopy copy {
+      .srcOffset = 0,
+      .dstOffset = 0,
+      .size = bufferSize,
+    };
+    cmd.copyBuffer(stagingBuffer.buffer, vertexBuffer, 1, &copy);
+  });
+
+  // Clean up
+  _mainDeletionQueue.PushFunction([this, vertexBuffer, allocation]() {
+    vmaDestroyBuffer(_allocator, vertexBuffer, allocation);
+  });
+  // Destroy staging buffer right now
+  vmaDestroyBuffer(_allocator, stagingBuffer.buffer, stagingBuffer.allocation);
+}
 
 // ===== PIPELINE BUILDER =====
 

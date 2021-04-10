@@ -14,6 +14,10 @@ struct GPUObjectData {
   glm::mat4 modelMatrix;
 };
 
+struct ObjectColor {
+  glm::vec4 albedo;
+};
+
 struct GPUCameraData {
   glm::mat4 view;
   glm::mat4 projection;
@@ -28,12 +32,18 @@ struct GPUSceneData {
 	glm::vec4 sunlightColor;
 };
 
+struct UploadContext {
+  vk::Fence uploadFence;
+  vk::CommandPool commandPool;
+};
+
 struct FrameData {
   vk::Semaphore presentSemaphore, renderSemaphore;
   vk::Fence renderFence;
   vk::CommandPool commandPool;
   vk::CommandBuffer mainCommandBuffer;
   AllocatedBuffer objectBuffer;
+  AllocatedBuffer objectColorBuffer;
   vk::DescriptorSet objectDescriptor;
 };
 
@@ -58,6 +68,7 @@ struct RenderObject {
   Mesh *mesh;
   Material *material;
   glm::mat4 transformMatrix;
+  glm::vec4 albedo;
 };
 
 constexpr uint32_t FRAME_OVERLAP = 2;
@@ -123,6 +134,8 @@ private:
   vk::DescriptorSet _globalDescriptor;
   vk::DescriptorSetLayout _objectSetLayout;
   vk::DescriptorPool _descriptorPool = nullptr;
+  /* Immediate submit */
+  UploadContext _uploadContext;
 
   // == Scene ==
   std::vector<RenderObject> _renderables;
@@ -151,6 +164,7 @@ private:
   void LoadMeshes();
   void InitScene();
   void DrawObjects(vk::CommandBuffer cmd, RenderObject *first, int32_t count);
+  void UploadMesh(Mesh &mesh);
   vk::ShaderModule LoadShaderModule(const char *filePath);
   FrameData &GetCurrentFrame();
   static void HandleSDLError();
@@ -164,9 +178,9 @@ private:
   Mesh *GetMesh(const std::string &name);
 
   template <class T>
-  void CopyBufferToGPU(const T &data, const VmaAllocation &allocation, bool applyPadding = false);
-  size_t PadUniformBufferSize(size_t originalSize) const;
-
+  void CopyBufferToAllocation(const T *src, const VmaAllocation &allocation, bool applyPadding, size_t size = sizeof(T));
+  [[nodiscard]] size_t PadUniformBufferSize(size_t originalSize) const;
+  void ImmediateSubmit(std::function<void(vk::CommandBuffer)>&& function);
 public:
   /**
    * Initializes everything in the engine

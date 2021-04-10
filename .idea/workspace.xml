@@ -23,6 +23,12 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" beforeDir="false" afterPath="$PROJECT_DIR$/external/glm/doc/api/a00004_source.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/shaders/colored_triangle.frag" beforeDir="false" afterPath="$PROJECT_DIR$/shaders/colored_triangle.frag" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/shaders/default_lit.frag" beforeDir="false" afterPath="$PROJECT_DIR$/shaders/default_lit.frag" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/shaders/tri_mesh.vert" beforeDir="false" afterPath="$PROJECT_DIR$/shaders/tri_mesh.vert" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/shaders/triangle.frag" beforeDir="false" afterPath="$PROJECT_DIR$/shaders/triangle.frag" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/Mesh.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/Mesh.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/Mesh.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/Mesh.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/engine/vk_engine.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/engine/vk_engine.h" afterDir="false" />
     </list>
@@ -188,7 +194,7 @@
       <workItem from="1617137034467" duration="4851000" />
       <workItem from="1617495714654" duration="403000" />
       <workItem from="1617994399752" duration="196000" />
-      <workItem from="1618044780981" duration="8894000" />
+      <workItem from="1618044780981" duration="19323000" />
     </task>
     <servers />
   </component>

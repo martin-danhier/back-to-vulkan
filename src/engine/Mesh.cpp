@@ -37,7 +37,7 @@ void Mesh::Upload(VmaAllocator allocator, DeletionQueue &deletionQueue) {
   memcpy(data, _vertices.data(), _vertices.size() * sizeof(Vertex));
   vmaUnmapMemory(allocator, _vertexBuffer.allocation);
 }
-vk::Buffer Mesh::GetVertexBuffer() const { return _vertexBuffer.buffer; }
+vk::Buffer &Mesh::GetVertexBuffer() { return _vertexBuffer.buffer; }
 
 size_t Mesh::GetVertexCount() const { return _vertices.size(); }
 
@@ -109,6 +109,8 @@ bool Mesh::LoadFromObj(const char *filename) {
 
   return true;
 }
+std::vector<Vertex> Mesh::GetVertices() const { return _vertices; }
+VmaAllocation &Mesh::GetAllocation() { return _vertexBuffer.allocation; }
 
 VertexInputDescription Vertex::GetVertexDescription() {
 
